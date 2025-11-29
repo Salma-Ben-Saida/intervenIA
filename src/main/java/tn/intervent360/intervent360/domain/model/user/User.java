@@ -1,4 +1,83 @@
 package tn.intervent360.intervent360.domain.model.user;
 
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
+import java.util.UUID;
+
+@Document(collection = "users")
 public class User {
+
+    @Getter
+    @Id
+    private String id;
+
+    @Setter
+    @Getter
+    @Indexed(unique = true)
+    private String email;
+
+    private String password; // stored hashed
+    @Getter
+    private Role role;
+
+    // Only for technicians, ignored for others
+    @Getter
+    private Boolean isAvailable;
+
+    // -----------------------------
+    // Constructors
+    // -----------------------------
+    public User() {
+        this.id = UUID.randomUUID().toString();
+    }
+
+    public User(String email, String password, Role role) {
+        this.id = UUID.randomUUID().toString();
+        this.email = email;
+        this.password = hashPassword(password);
+        this.role = role;
+
+        //By default, a new Technician is available when added
+        this.isAvailable = (role == Role.TECHNICIAN);
+    }
+
+    // -----------------------------
+    // Password hashing
+    // -----------------------------
+    private String hashPassword(String rawPassword) {
+        return new BCryptPasswordEncoder().encode(rawPassword);
+    }
+
+    public boolean checkPassword(String rawPassword) {
+        return new BCryptPasswordEncoder().matches(rawPassword, this.password);
+    }
+
+    // -----------------------------
+    // Getters & Setters
+    // -----------------------------
+
+    public void setPassword(String rawPassword) {
+        this.password = hashPassword(rawPassword);
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
+
+        // If the role changes, availability rule changes
+        if (role != Role.TECHNICIAN) {
+            this.isAvailable = null;
+        }
+    }
+
+    public void setIsAvailable(Boolean available) {
+        if (this.role == Role.TECHNICIAN) {
+            this.isAvailable = available;
+        }
+    }
 }
+
