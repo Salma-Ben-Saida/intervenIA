@@ -48,6 +48,7 @@ public class Team {
     public Team(String name, String leaderId,
                 ProfessionalSpeciality speciality,
                 Zone zone) {
+        this.id = UUID.randomUUID().toString();
         this.name = name;
         this.leaderId = leaderId;
         this.speciality = speciality;
