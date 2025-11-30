@@ -61,8 +61,9 @@ public class UserService {
                 .toList();
     }
 
-    public Optional<User> findByEmail(String email) {
-        return userRepository.findByEmail(email);
+    public Optional<UserDTO> findByEmail(String email) {
+        Optional<User> returnedUser= userRepository.findByEmail(email);
+        return returnedUser.map(UserMapper::toUserDTO);
     }
 
     // ============================
