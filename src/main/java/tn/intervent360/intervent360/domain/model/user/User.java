@@ -21,6 +21,9 @@ public class User {
     @Indexed(unique = true)
     private String email;
 
+    @Getter @Setter
+    private String username;
+    @Getter
     private String password; // stored hashed
     @Getter
     private Role role;
@@ -36,8 +39,9 @@ public class User {
         this.id = UUID.randomUUID().toString();
     }
 
-    public User(String email, String password, Role role) {
+    public User(String email, String username, String password, Role role) {
         this.id = UUID.randomUUID().toString();
+        this.username = username;
         this.email = email;
         this.password = hashPassword(password);
         this.role = role;
