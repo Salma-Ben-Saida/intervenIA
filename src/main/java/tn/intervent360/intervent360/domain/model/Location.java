@@ -1,4 +1,4 @@
-package tn.intervent360.intervent360.domain.model.incident;
+package tn.intervent360.intervent360.domain.model;
 import lombok.Getter;
 import lombok.Setter;
 

@@ -1,6 +1,7 @@
 package tn.intervent360.intervent360.application.mapper;
 
 
+import tn.intervent360.intervent360.domain.model.Location;
 import tn.intervent360.intervent360.domain.model.incident.*;
 import tn.intervent360.intervent360.web.dto.IncidentDTO;
 
@@ -22,9 +23,7 @@ public class IncidentMapper {
         dto.setIncidentStatus(incident.getIncidentStatus());
 
         if (incident.getLocation() != null) {
-            dto.setLat(incident.getLocation().getLat());
-            dto.setLng(incident.getLocation().getLng());
-            dto.setAddress(incident.getLocation().getAddress());
+
         }
 
         return dto;

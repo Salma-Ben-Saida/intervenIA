@@ -9,6 +9,6 @@ public enum ProfessionalSpeciality {
     ROADS,
     ENVIRONMENT,
     FIRE_SAFETY,
-    TELECOMMUNICATION,
-    IOT
+    TELECOMMUNICATION_IOT,
+    EMERGENCY
 }

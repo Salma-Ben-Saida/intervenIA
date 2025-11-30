@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import tn.intervent360.intervent360.domain.model.Location;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 
 import java.util.List;

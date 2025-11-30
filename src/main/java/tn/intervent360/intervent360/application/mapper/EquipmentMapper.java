@@ -2,7 +2,8 @@ package tn.intervent360.intervent360.application.mapper;
 
 
 import tn.intervent360.intervent360.domain.model.equipment.Equipment;
-import tn.intervent360.intervent360.domain.model.incident.Location;
+import tn.intervent360.intervent360.domain.model.equipment.EquipmentStatus;
+import tn.intervent360.intervent360.domain.registry.EquipmentTypeRegistry;
 import tn.intervent360.intervent360.web.dto.EquipmentDTO;
 public class EquipmentMapper {
 
@@ -13,9 +14,11 @@ public class EquipmentMapper {
         dto.setId(equipment.getId());
         dto.setEquipmentType(equipment.getEquipmentType());
         dto.setStatus(equipment.getStatus());
-        dto.setLat(equipment.getLocation() != null ? equipment.getLocation().getLat() : null);
-        dto.setLng(equipment.getLocation() != null ? equipment.getLocation().getLng() : null);
-        dto.setAddress(equipment.getLocation() != null ? equipment.getLocation().getAddress() : null);
+        dto.setLocation(equipment.getLocation());
+        dto.setModel(equipment.getModel());
+        dto.setQuantity(equipment.getQuantity());
+        dto.setEquipmentName(equipment.getEquipmentName());
+        dto.setInUse(equipment.getInUse());
 
         return dto;
     }
@@ -25,14 +28,18 @@ public class EquipmentMapper {
 
         Equipment equipment = new Equipment();
         equipment.setId(dto.getId());
-        equipment.setEquipmentType(dto.getEquipmentType());
-        equipment.setStatus(dto.getStatus());
-
-        if (dto.getLat() != null && dto.getLng() != null) {
-            Location location = new Location(dto.getLat(), dto.getLng(),  dto.getAddress());
-            equipment.setLocation(location);
-        }
-
+        // Set equipmentType based on the name if not provided
+        equipment.setEquipmentType(
+                dto.getEquipmentType() != null ? dto.getEquipmentType() : EquipmentTypeRegistry.getType(dto.getEquipmentName())
+        );
+        equipment.setStatus(
+                dto.getStatus() != null ? dto.getStatus() : EquipmentStatus.OPERATIONAL
+        );
+        equipment.setLocation(dto.getLocation());
+        equipment.setModel(dto.getModel());
+        equipment.setQuantity(dto.getQuantity());
+        equipment.setEquipmentName(dto.getEquipmentName());
+        equipment.setInUse(dto.getInUse());
         return equipment;
     }
 }
