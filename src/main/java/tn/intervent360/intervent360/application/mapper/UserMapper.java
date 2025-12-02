@@ -12,6 +12,7 @@ public class UserMapper {
         userDTO.setPassword(user.getPassword());
         userDTO.setRole(user.getRole());
         userDTO.setIsAvailable(user.getIsAvailable());
+        userDTO.setSpeciality(user.getSpeciality());
         return userDTO;
     }
 
@@ -22,6 +23,7 @@ public class UserMapper {
         user.setUsername(userDTO.getUsername());
         user.setIsAvailable(userDTO.getIsAvailable());
         user.setRole(userDTO.getRole());
+        user.setSpeciality(userDTO.getSpeciality());
         return user;
     }
 }

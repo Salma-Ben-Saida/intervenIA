@@ -11,8 +11,7 @@ public class TeamMapper {
 
         TeamDTO dto = new TeamDTO();
         dto.setId(team.getId());
-        dto.setName(team.getName());
-        dto.setChefId(team.getLeaderId());
+        dto.setLeaderId(team.getLeaderId());
         dto.setSpeciality(team.getSpeciality());
         dto.setZone(team.getZone());
 
@@ -28,8 +27,7 @@ public class TeamMapper {
 
         Team team = new Team();
         team.setId(dto.getId());
-        team.setName(dto.getName());
-        team.setLeaderId(dto.getChefId());
+        team.setLeaderId(dto.getLeaderId());
         team.setSpeciality(dto.getSpeciality());
         team.setZone(dto.getZone());
 

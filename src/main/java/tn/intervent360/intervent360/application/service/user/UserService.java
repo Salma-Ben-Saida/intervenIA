@@ -6,6 +6,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import tn.intervent360.intervent360.domain.model.user.User;
 import tn.intervent360.intervent360.domain.model.user.Role;
+import tn.intervent360.intervent360.domain.repository.TeamRepository;
 import tn.intervent360.intervent360.domain.repository.UserRepository;
 import tn.intervent360.intervent360.web.dto.UserDTO;
 import tn.intervent360.intervent360.application.mapper.UserMapper;
@@ -18,6 +19,7 @@ import java.util.Optional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final TeamRepository teamRepository;
     private final PasswordEncoder passwordEncoder;
 
     // ============================
@@ -95,6 +97,13 @@ public class UserService {
         if (!userRepository.existsById(id)) {
             throw new IllegalArgumentException("User not found");
         }
+
+        // Check if the user is a leader
+        teamRepository.findByLeaderId(id).ifPresent(team -> {
+            team.setLeaderId(null);
+            teamRepository.save(team);
+        });
+
         userRepository.deleteById(id);
     }
 }

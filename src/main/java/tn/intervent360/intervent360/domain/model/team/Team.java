@@ -45,11 +45,10 @@ public class Team {
         this.id = UUID.randomUUID().toString();
     }
 
-    public Team(String name, String leaderId,
+    public Team(String leaderId,
                 ProfessionalSpeciality speciality,
                 Zone zone) {
         this.id = UUID.randomUUID().toString();
-        this.name = name;
         this.leaderId = leaderId;
         this.speciality = speciality;
         this.zone = zone;

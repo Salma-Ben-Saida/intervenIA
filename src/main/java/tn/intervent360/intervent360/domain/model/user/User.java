@@ -6,6 +6,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 
 import java.util.UUID;
 
@@ -28,6 +29,11 @@ public class User {
     @Getter
     private Role role;
 
+
+    //Only for technicians and leaders, ignored for others
+    @Getter @Setter
+    private ProfessionalSpeciality speciality;
+
     // Only for technicians, ignored for others
     @Getter
     private Boolean isAvailable;
@@ -39,12 +45,13 @@ public class User {
         this.id = UUID.randomUUID().toString();
     }
 
-    public User(String email, String username, String password, Role role) {
+    public User(String email, String username, String password, Role role, ProfessionalSpeciality speciality) {
         this.id = UUID.randomUUID().toString();
         this.username = username;
         this.email = email;
         this.password = hashPassword(password);
         this.role = role;
+        this.speciality=speciality;
 
         //By default, a new Technician is available when added
         this.isAvailable = (role == Role.TECHNICIAN);

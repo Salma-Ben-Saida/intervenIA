@@ -10,8 +10,7 @@ import java.util.List;
 @Data
 public class TeamDTO {
     private String id;
-    private String name;
-    private String chefId;
+    private String leaderId;
     private ProfessionalSpeciality speciality;
     private Zone zone;
     private List<String> technicianIds;
