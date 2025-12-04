@@ -1,10 +1,12 @@
 package tn.intervent360.intervent360.application.service.equipment;
 
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import tn.intervent360.intervent360.application.mapper.EquipmentMapper;
-import tn.intervent360.intervent360.domain.model.Location;
+import tn.intervent360.intervent360.domain.model.Zone;
+import tn.intervent360.intervent360.domain.model.incident.Location;
 import tn.intervent360.intervent360.domain.model.equipment.Equipment;
 import tn.intervent360.intervent360.domain.model.equipment.EquipmentStatus;
 import tn.intervent360.intervent360.domain.model.equipment.EquipmentType;
@@ -172,17 +174,11 @@ public class EquipmentService {
         return EquipmentMapper.toDTO(equipmentRepository.save(eq));
     }
 
-    // ===========================================================
-    //                BUSINESS LOGIC — LOCATION
-    // ===========================================================
 
-    public EquipmentDTO updateLocation(String equipmentId, Location location) {
-        Equipment eq = equipmentRepository.findById(equipmentId)
+    public EquipmentDTO updateZone(String id, Zone zone) {
+        Equipment eq = equipmentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Equipment not found"));
-
-        eq.setLocation(location);
+        eq.setZone(zone);
         return EquipmentMapper.toDTO(equipmentRepository.save(eq));
     }
-
-
 }

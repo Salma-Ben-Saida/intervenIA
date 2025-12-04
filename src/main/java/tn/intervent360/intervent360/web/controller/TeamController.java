@@ -3,7 +3,7 @@ package tn.intervent360.intervent360.web.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import tn.intervent360.intervent360.application.service.team.TeamService;
-import tn.intervent360.intervent360.domain.model.team.Zone;
+import tn.intervent360.intervent360.domain.model.Zone;
 import tn.intervent360.intervent360.web.dto.TeamDTO;
 
 import java.util.List;

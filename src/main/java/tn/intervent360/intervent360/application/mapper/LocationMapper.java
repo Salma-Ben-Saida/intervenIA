@@ -1,6 +1,6 @@
 package tn.intervent360.intervent360.application.mapper;
 
-import tn.intervent360.intervent360.domain.model.Location;
+import tn.intervent360.intervent360.domain.model.incident.Location;
 import tn.intervent360.intervent360.web.dto.LocationDTO;
 
 public class LocationMapper {

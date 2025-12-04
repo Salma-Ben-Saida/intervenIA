@@ -3,7 +3,7 @@ package tn.intervent360.intervent360.web.dto;
 
 import lombok.Data;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
-import tn.intervent360.intervent360.domain.model.team.Zone;
+import tn.intervent360.intervent360.domain.model.Zone;
 
 import java.util.List;
 

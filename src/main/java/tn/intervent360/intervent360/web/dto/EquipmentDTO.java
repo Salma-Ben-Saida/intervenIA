@@ -4,7 +4,7 @@ import lombok.Data;
 import tn.intervent360.intervent360.domain.model.equipment.EquipmentName;
 import tn.intervent360.intervent360.domain.model.equipment.EquipmentStatus;
 import tn.intervent360.intervent360.domain.model.equipment.EquipmentType;
-import tn.intervent360.intervent360.domain.model.Location;
+import tn.intervent360.intervent360.domain.model.incident.Location;
 
 @Data
 public class EquipmentDTO {

@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import tn.intervent360.intervent360.application.mapper.TeamMapper;
 import tn.intervent360.intervent360.domain.model.team.Team;
-import tn.intervent360.intervent360.domain.model.team.Zone;
+import tn.intervent360.intervent360.domain.model.Zone;
 import tn.intervent360.intervent360.domain.model.user.Role;
 import tn.intervent360.intervent360.domain.model.user.User;
 import tn.intervent360.intervent360.domain.repository.TeamRepository;

@@ -6,7 +6,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.GeoSpatialIndexed;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
-import tn.intervent360.intervent360.domain.model.Location;
+import tn.intervent360.intervent360.domain.model.Zone;
 import tn.intervent360.intervent360.domain.registry.EquipmentTypeRegistry;
 
 import java.util.UUID;
@@ -43,7 +43,7 @@ public class Equipment {
     // Embedded location (no need for a separate collection)
     @GeoSpatialIndexed
     @Getter @Setter
-    private Location location;
+    private Zone zone;
 
 
     // ============================
@@ -54,22 +54,22 @@ public class Equipment {
         this.id = UUID.randomUUID().toString();
     }
 
-    public Equipment(EquipmentName name, Location location, int  quantity) {
+    public Equipment(EquipmentName name, Zone zone, int  quantity) {
         this.id = UUID.randomUUID().toString();
         this.equipmentName = name;
         this.equipmentType = EquipmentTypeRegistry.getType(name);
         this.quantity = quantity;
-        this.location = location;
+        this.zone = zone;
         this.status = EquipmentStatus.OPERATIONAL; // by default
         this.inUse = 0;
     }
 
-    public Equipment(EquipmentName name, Location location, int  quantity, String  description) {
+    public Equipment(EquipmentName name, Zone zone, int  quantity, String  description) {
         this.id = UUID.randomUUID().toString();
         this.equipmentName = name;
         this.equipmentType = EquipmentTypeRegistry.getType(name);
         this.quantity = quantity;
-        this.location = location;
+        this.zone = zone;
         this.model=description;
         this.status = EquipmentStatus.OPERATIONAL; // by default
         this.inUse = 0;
@@ -81,17 +81,11 @@ public class Equipment {
     // ============================
 
     public void computeSignature() {
-        if (location == null) {
-            this.signature = equipmentName.name();
-            return;
-        }
 
         this.signature =
                 equipmentName.name() + "|" +
                         (model == null ? "" : model) + "|" +
-                        location.getLat() + "|" +
-                        location.getLng() + "|" +
-                        location.getAddress();
+                        zone;
     }
 
 
@@ -105,36 +99,6 @@ public class Equipment {
         this.quantity -= amount;
         if (this.quantity==0)
             this.status = EquipmentStatus.OUT_OF_SERVICE;
-    }
-    public void incrementInUse(int amount) {
-        if (amount <= 0)
-            throw new IllegalArgumentException("Amount must be > 0");
-
-        if (!isOperational())
-            throw new IllegalStateException("Equipment must be operational to be used.");
-
-        if (this.quantity - this.inUse < amount)
-            throw new IllegalStateException("Not enough available items.");
-
-        this.inUse += amount;
-
-        if (this.inUse == this.quantity) {
-            this.status = EquipmentStatus.OUT_OF_SERVICE;
-        }
-    }
-
-    public void freeFromUse(int amount) {
-        if (amount <= 0)
-            throw new IllegalArgumentException("Amount must be > 0");
-
-        if (this.inUse < amount)
-            throw new IllegalStateException("Cannot free more items than in use.");
-
-        this.inUse -= amount;
-
-        if (this.inUse < this.quantity) {
-            this.status = EquipmentStatus.OPERATIONAL;
-        }
     }
 
 

@@ -4,24 +4,32 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
-import tn.intervent360.intervent360.domain.model.Location;
+import tn.intervent360.intervent360.domain.model.Zone;
+import tn.intervent360.intervent360.domain.registry.IncidentRegistry;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
 @Document(collection = "incidents")
 public class Incident {
 
-    @Getter @Setter
     @Id
-    private String id;
+    @Getter @Setter
+    private String id = UUID.randomUUID().toString();
 
     @Getter @Setter
-    private String description;   // Optional except when AI is enabled
+    private IncidentName name;
+
+    @Getter @Setter
+    private String description;
 
     @Getter @Setter
     private List<String> photos;
+
+    @Getter @Setter
+    private Date submittedAt = new Date();
 
     @Getter @Setter
     private String citizenId;
@@ -31,6 +39,12 @@ public class Incident {
 
     @Getter @Setter
     private Float aiConfidence = 0f;
+
+    @Getter @Setter
+    private IncidentName aiPredictedName;
+
+    @Getter @Setter
+    private UrgencyLevel aiPredictedUrgency;
 
     @Getter @Setter
     private UrgencyLevel urgencyLevel;
@@ -45,75 +59,136 @@ public class Incident {
     private Location location;
 
     @Getter @Setter
-    private ProfessionalSpeciality detectedCategory; // from AI or manual mapping
+    private Zone zone;
+
+    @Getter @Setter
+    private ProfessionalSpeciality speciality;
 
 
-    // ============================
-    //        CONSTRUCTORS
-    // ============================
-
-    public Incident() {
-        this.id = UUID.randomUUID().toString();
-    }
-
-    public Incident(String description,
-                    String citizenId,
-                    IncidentType type,
-                    Location location) {
-
-        this.id = UUID.randomUUID().toString();
+    // =========================================================
+    //            CONSTRUCTOR — MANUAL SUBMISSION
+    // =========================================================
+    public Incident(
+            IncidentName name,
+            String description,
+            List<String> photos,
+            String citizenId,
+            Location location
+    ) {
+        this.name = name;
         this.description = description;
+        this.photos = photos;
         this.citizenId = citizenId;
-        this.incidentType = type;
         this.location = location;
-        this.aiEnabled = false;
-        this.aiConfidence = 0f;
+        this.zone=resolveZone(location);
+
+        // Resolve speciality
+        this.speciality = IncidentRegistry.getSpecialities(name)
+                .stream()
+                .findFirst()
+                .orElse(null);
+
+        // Resolve urgency
+        this.urgencyLevel = IncidentRegistry.getDefaultUrgency(name);
+
+        // Resolve type
+        this.incidentType = IncidentRegistry.resolveIncidentType(this.urgencyLevel);
+    }
+
+    // =========================================================
+    //            Zone resolver method
+    // =========================================================
+
+    public Zone resolveZone(Location location) {
+        double lat = location.getLat();
+
+        if (lat >= 36.85)
+            return Zone.NORTH;
+
+        if (lat <= 36.70)
+            return Zone.SOUTH;
+
+        return Zone.CENTER;
     }
 
 
-    // ============================
-    //        BUSINESS METHODS
-    // ============================
+    // =========================================================
+    //            CONSTRUCTOR — AI-BASED SUBMISSION
+    // =========================================================
+    public Incident(
+            String description,
+            List<String> photos,
+            String citizenId,
+            Location location,
+            IncidentName aiPredictedName,
+            Float aiConfidence,
+            UrgencyLevel aiPredictedUrgency
+    ) {
+        this.aiEnabled = true;
 
-    public void classifyWithAI(Boolean enabled, Float confidence, ProfessionalSpeciality speciality) {
-        this.aiEnabled = enabled;
-        this.aiConfidence = confidence;
-        this.detectedCategory = speciality;
+        this.description = description;
+        this.photos = photos;
+        this.citizenId = citizenId;
+        this.location = location;
+        this.zone=resolveZone(location);
 
-        // When AI is enabled, validate description rule immediately
-        if (enabled && (description == null || description.trim().isEmpty())) {
-            throw new IllegalArgumentException(
-                    "Description is required when AI classification is enabled."
-            );
+        this.aiPredictedName = aiPredictedName;
+        this.aiConfidence = aiConfidence;
+        this.aiPredictedUrgency = aiPredictedUrgency;
+
+        if (aiConfidence>=85){
+            this.name=aiPredictedName;
+            this.urgencyLevel=aiPredictedUrgency;
+        }
+
+
+        // Automatically infer incident type based on predicted urgency
+        this.incidentType = IncidentRegistry.resolveIncidentType(aiPredictedUrgency);
+
+        // Predicted speciality (not official)
+        this.speciality = IncidentRegistry.getSpecialities(aiPredictedName)
+                .stream()
+                .findFirst()
+                .orElse(null);
+    }
+
+
+    public Incident() {}
+
+
+    // =========================================================
+    //                       BUSINESS LOGIC
+    // =========================================================
+
+    public void escalateUrgency() {
+        this.urgencyLevel = UrgencyLevel.CRITICAL;
+    }
+
+    public void confirmAIPrediction() {
+        if (this.aiPredictedName != null) {
+            this.name = this.aiPredictedName;
+            this.urgencyLevel = this.aiPredictedUrgency;
+
+            this.speciality = IncidentRegistry.getSpecialities(this.aiPredictedName)
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
         }
     }
 
-    public void setUrgency(UrgencyLevel level) {
-        this.urgencyLevel = level;
+    public void updateIncidentName(IncidentName newName) {
+        this.name = newName;
+
+        this.speciality = IncidentRegistry.getSpecialities(newName)
+                .stream()
+                .findFirst()
+                .orElse(null);
+
+        this.urgencyLevel = IncidentRegistry.getDefaultUrgency(newName);
+
+        this.incidentType = IncidentRegistry.resolveIncidentType(this.urgencyLevel);
     }
 
-    public void updateStatus(IncidentStatus status) {
-        this.incidentStatus = status;
-    }
 
-    /**
-     * Validates the citizen-provided fields before inserting in DB.
-     * RULES:
-     * - Location is always required
-     * - Description is required ONLY when AI is enabled
-     */
-    public void validateCitizenInput() {
-
-        if (this.location == null) {
-            throw new IllegalArgumentException("Location is required");
-        }
-
-        if (Boolean.TRUE.equals(aiEnabled)) {
-            if (this.description == null || this.description.trim().isEmpty()) {
-                throw new IllegalArgumentException(
-                        "Description is required when AI mode is enabled"
-                );
-            }
-        }
-    }
 }
+

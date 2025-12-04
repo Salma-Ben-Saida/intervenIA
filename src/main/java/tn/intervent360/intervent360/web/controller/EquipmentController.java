@@ -4,7 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import tn.intervent360.intervent360.application.service.equipment.EquipmentService;
-import tn.intervent360.intervent360.domain.model.Location;
+import tn.intervent360.intervent360.domain.model.Zone;
+import tn.intervent360.intervent360.domain.model.incident.Location;
 import tn.intervent360.intervent360.domain.model.equipment.EquipmentStatus;
 import tn.intervent360.intervent360.domain.model.equipment.EquipmentType;
 import tn.intervent360.intervent360.web.dto.EquipmentDTO;
@@ -88,9 +89,9 @@ public class EquipmentController {
         return ResponseEntity.ok(equipmentService.updateStatus(id, status));
     }
 
-    @PutMapping("/{id}/location")
-    public ResponseEntity<EquipmentDTO> updateLocation(@PathVariable String id, @RequestBody Location location) {
-        return ResponseEntity.ok(equipmentService.updateLocation(id, location));
+    @PutMapping("/{id}/zone")
+    public ResponseEntity<EquipmentDTO> updateZone(@PathVariable String id, @RequestBody Zone zone) {
+        return ResponseEntity.ok(equipmentService.updateZone(id, zone));
     }
 
     // ============================
