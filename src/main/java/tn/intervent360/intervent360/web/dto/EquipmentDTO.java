@@ -1,6 +1,7 @@
 package tn.intervent360.intervent360.web.dto;
 
 import lombok.Data;
+import tn.intervent360.intervent360.domain.model.Zone;
 import tn.intervent360.intervent360.domain.model.equipment.EquipmentName;
 import tn.intervent360.intervent360.domain.model.equipment.EquipmentStatus;
 import tn.intervent360.intervent360.domain.model.equipment.EquipmentType;
@@ -14,7 +15,7 @@ public class EquipmentDTO {
     private int quantity;
     private int inUse;
     private EquipmentStatus status;
-    private Location location;
+    private Zone zone;
     private String model;
 }
 

@@ -16,11 +16,7 @@ public class IncidentAiDTO {
 
     private String description;       // Required for AI
     private List<String> photos;      // Optional but very useful
-    private String citizenId;         // Authenticated user
-    private Location location;        // Mandatory
-    private Zone zone;
-
+    private String citizenMessage;
     private IncidentName aiPredictedName;
     private Float aiConfidence;
-    private UrgencyLevel aiPredictedUrgency;
 }

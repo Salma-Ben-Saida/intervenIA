@@ -3,9 +3,10 @@ package tn.intervent360.intervent360.web.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import tn.intervent360.intervent360.application.mapper.IncidentAiMapper;
+import tn.intervent360.intervent360.application.service.ai.AiIncidentClassifier;
 import tn.intervent360.intervent360.application.service.incident.IncidentService;
 import tn.intervent360.intervent360.domain.model.Zone;
-import tn.intervent360.intervent360.domain.model.incident.Location;
 import tn.intervent360.intervent360.domain.model.incident.*;
 import tn.intervent360.intervent360.web.dto.incident.*;
 
@@ -18,23 +19,16 @@ import java.util.List;
 public class IncidentController {
 
     private final IncidentService incidentService;
+    private final AiIncidentClassifier classifier;
+    private final IncidentAiMapper mapper;
 
     // ============================================================
-    //                MANUAL SUBMISSION
+    //                Incident SUBMISSION
     // ============================================================
 
-    @PostMapping("/manual")
-    public ResponseEntity<IncidentDTO> submitManualIncident(@RequestBody IncidentManualDTO dto) {
-        return ResponseEntity.ok(incidentService.submitManualIncident(dto));
-    }
-
-    // ============================================================
-    //                AI SUBMISSION
-    // ============================================================
-
-    @PostMapping("/ai")
-    public ResponseEntity<IncidentDTO> submitAiIncident(@RequestBody IncidentAiDTO dto) {
-        return ResponseEntity.ok(incidentService.submitAiIncident(dto));
+    @PostMapping("/create")
+    public ResponseEntity<IncidentDTO> createIncident(@RequestBody CreateIncidentDTO dto) {
+        return ResponseEntity.ok(incidentService.createIncident(dto));
     }
 
 
@@ -78,8 +72,8 @@ public class IncidentController {
         return ResponseEntity.ok(incidentService.findByCitizenId(citizenId));
     }
 
-    @PostMapping("/search/zone")
-    public ResponseEntity<List<IncidentDTO>> getByZone(@RequestBody Zone zone) {
+    @PostMapping("/search/{zone}")
+    public ResponseEntity<List<IncidentDTO>> getByZone(@PathVariable Zone zone) {
         return ResponseEntity.ok(incidentService.findByZone(zone));
     }
 

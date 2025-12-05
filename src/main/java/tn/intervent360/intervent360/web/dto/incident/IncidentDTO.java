@@ -1,4 +1,4 @@
-//DTO used for sending Incident to frontend
+//FULL DTO used for sending Incident to frontend
 
 package tn.intervent360.intervent360.web.dto.incident;
 
@@ -26,12 +26,12 @@ public class IncidentDTO {
     private Boolean aiEnabled;
     private Float aiConfidence;
     private IncidentName aiPredictedName;
-    private UrgencyLevel aiPredictedUrgency;
+    private String citizenMessage;
 
     private UrgencyLevel urgencyLevel;
     private IncidentType incidentType;
     private IncidentStatus incidentStatus;
-    private ProfessionalSpeciality speciality;
+    private List<ProfessionalSpeciality> speciality;
 
     private Location location;
     private Zone zone;

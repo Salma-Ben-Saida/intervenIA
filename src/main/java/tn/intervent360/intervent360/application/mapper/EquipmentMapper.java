@@ -14,7 +14,7 @@ public class EquipmentMapper {
         dto.setId(equipment.getId());
         dto.setEquipmentType(equipment.getEquipmentType());
         dto.setStatus(equipment.getStatus());
-        dto.setLocation(equipment.getLocation());
+        dto.setZone(equipment.getZone());
         dto.setModel(equipment.getModel());
         dto.setQuantity(equipment.getQuantity());
         dto.setEquipmentName(equipment.getEquipmentName());
@@ -35,7 +35,7 @@ public class EquipmentMapper {
         equipment.setStatus(
                 dto.getStatus() != null ? dto.getStatus() : EquipmentStatus.OPERATIONAL
         );
-        equipment.setLocation(dto.getLocation());
+        equipment.setZone(dto.getZone());
         equipment.setModel(dto.getModel());
         equipment.setQuantity(dto.getQuantity());
         equipment.setEquipmentName(dto.getEquipmentName());

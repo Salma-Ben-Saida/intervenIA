@@ -1,7 +1,9 @@
 package tn.intervent360.intervent360.domain.registry;
 
+import tn.intervent360.intervent360.domain.model.Zone;
 import tn.intervent360.intervent360.domain.model.incident.IncidentName;
 import tn.intervent360.intervent360.domain.model.incident.IncidentType;
+import tn.intervent360.intervent360.domain.model.incident.Location;
 import tn.intervent360.intervent360.domain.model.incident.UrgencyLevel;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 
@@ -144,7 +146,7 @@ public class IncidentRegistry {
         // ============================
         // UNKNOWN
         // ============================
-        register(IncidentName.UNKNOWN, UrgencyLevel.MEDIUM,
+        register(IncidentName.UNKNOWN, UrgencyLevel.LOW,
                 ProfessionalSpeciality.ENVIRONMENT); // fallback
 
     }
@@ -177,7 +179,7 @@ public class IncidentRegistry {
     }
     public static IncidentType resolveIncidentType(UrgencyLevel urgencyLevel) {
         if (urgencyLevel == null) {
-            return IncidentType.INTERVENTION_REQUEST; // fallback safe
+            return IncidentType.COMPLAINT; // fallback safe
         }
 
         return switch (urgencyLevel) {
@@ -186,6 +188,18 @@ public class IncidentRegistry {
             // HIGH and MEDIUM are handled as intervention requests
             default -> IncidentType.INTERVENTION_REQUEST;
         };
+    }
+
+    public static Zone resolveZone(Location location) {
+        double lat = location.getLat();
+
+        if (lat >= 36.85)
+            return Zone.NORTH;
+
+        if (lat <= 36.70)
+            return Zone.SOUTH;
+
+        return Zone.CENTER;
     }
 
 }

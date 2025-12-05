@@ -5,5 +5,6 @@ public enum IncidentStatus {
     SCHEDULED,
     ASSIGNED,
     IN_PROGRESS,
-    COMPLETED
+    COMPLETED,
+    REQUIRES_MANUAL_REVIEW
 }

@@ -40,8 +40,7 @@ public class Equipment {
     @Getter @Setter
     private String model;
 
-    // Embedded location (no need for a separate collection)
-    @GeoSpatialIndexed
+
     @Getter @Setter
     private Zone zone;
 

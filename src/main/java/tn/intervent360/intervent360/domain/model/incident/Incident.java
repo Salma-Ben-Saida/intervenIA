@@ -8,6 +8,7 @@ import tn.intervent360.intervent360.domain.model.Zone;
 import tn.intervent360.intervent360.domain.registry.IncidentRegistry;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -44,9 +45,6 @@ public class Incident {
     private IncidentName aiPredictedName;
 
     @Getter @Setter
-    private UrgencyLevel aiPredictedUrgency;
-
-    @Getter @Setter
     private UrgencyLevel urgencyLevel;
 
     @Getter @Setter
@@ -62,7 +60,10 @@ public class Incident {
     private Zone zone;
 
     @Getter @Setter
-    private ProfessionalSpeciality speciality;
+    private List<ProfessionalSpeciality> speciality;
+
+    @Getter @Setter
+    private String citizenMessage;
 
 
     // =========================================================
@@ -80,13 +81,15 @@ public class Incident {
         this.photos = photos;
         this.citizenId = citizenId;
         this.location = location;
-        this.zone=resolveZone(location);
+
+        // Resolve zone
+        this.zone= IncidentRegistry.resolveZone(location);
 
         // Resolve speciality
-        this.speciality = IncidentRegistry.getSpecialities(name)
+        this.speciality = Collections.singletonList(IncidentRegistry.getSpecialities(name)
                 .stream()
                 .findFirst()
-                .orElse(null);
+                .orElse(null));
 
         // Resolve urgency
         this.urgencyLevel = IncidentRegistry.getDefaultUrgency(name);
@@ -99,17 +102,7 @@ public class Incident {
     //            Zone resolver method
     // =========================================================
 
-    public Zone resolveZone(Location location) {
-        double lat = location.getLat();
 
-        if (lat >= 36.85)
-            return Zone.NORTH;
-
-        if (lat <= 36.70)
-            return Zone.SOUTH;
-
-        return Zone.CENTER;
-    }
 
 
     // =========================================================
@@ -122,7 +115,7 @@ public class Incident {
             Location location,
             IncidentName aiPredictedName,
             Float aiConfidence,
-            UrgencyLevel aiPredictedUrgency
+            String citizenMessage
     ) {
         this.aiEnabled = true;
 
@@ -130,26 +123,28 @@ public class Incident {
         this.photos = photos;
         this.citizenId = citizenId;
         this.location = location;
-        this.zone=resolveZone(location);
+
+        // Resolve zone
+        this.zone=IncidentRegistry.resolveZone(location);
 
         this.aiPredictedName = aiPredictedName;
         this.aiConfidence = aiConfidence;
-        this.aiPredictedUrgency = aiPredictedUrgency;
+        this.citizenMessage = citizenMessage;
 
         if (aiConfidence>=85){
             this.name=aiPredictedName;
-            this.urgencyLevel=aiPredictedUrgency;
+            this.urgencyLevel=IncidentRegistry.getDefaultUrgency(aiPredictedName);
         }
 
 
         // Automatically infer incident type based on predicted urgency
-        this.incidentType = IncidentRegistry.resolveIncidentType(aiPredictedUrgency);
+        this.incidentType = IncidentRegistry.resolveIncidentType(this.urgencyLevel);
 
         // Predicted speciality (not official)
-        this.speciality = IncidentRegistry.getSpecialities(aiPredictedName)
+        this.speciality = Collections.singletonList(IncidentRegistry.getSpecialities(aiPredictedName)
                 .stream()
                 .findFirst()
-                .orElse(null);
+                .orElse(null));
     }
 
 
@@ -167,22 +162,21 @@ public class Incident {
     public void confirmAIPrediction() {
         if (this.aiPredictedName != null) {
             this.name = this.aiPredictedName;
-            this.urgencyLevel = this.aiPredictedUrgency;
 
-            this.speciality = IncidentRegistry.getSpecialities(this.aiPredictedName)
+            this.speciality = Collections.singletonList(IncidentRegistry.getSpecialities(this.aiPredictedName)
                     .stream()
                     .findFirst()
-                    .orElse(null);
+                    .orElse(null));
         }
     }
 
     public void updateIncidentName(IncidentName newName) {
         this.name = newName;
 
-        this.speciality = IncidentRegistry.getSpecialities(newName)
+        this.speciality = Collections.singletonList(IncidentRegistry.getSpecialities(newName)
                 .stream()
                 .findFirst()
-                .orElse(null);
+                .orElse(null));
 
         this.urgencyLevel = IncidentRegistry.getDefaultUrgency(newName);
 

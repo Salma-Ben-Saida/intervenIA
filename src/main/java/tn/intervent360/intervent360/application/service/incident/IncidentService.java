@@ -2,9 +2,13 @@ package tn.intervent360.intervent360.application.service.incident;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import tn.intervent360.intervent360.application.mapper.IncidentAiMapper;
 import tn.intervent360.intervent360.application.mapper.IncidentMapper;
+import tn.intervent360.intervent360.application.service.ai.AiConfidenceEvaluator;
+import tn.intervent360.intervent360.application.service.ai.AiIncidentClassifier;
+import tn.intervent360.intervent360.application.service.ai.AiResponse;
 import tn.intervent360.intervent360.domain.model.Zone;
-import tn.intervent360.intervent360.domain.model.incident.Location;
 import tn.intervent360.intervent360.domain.model.incident.*;
 import tn.intervent360.intervent360.domain.repository.IncidentRepository;
 import tn.intervent360.intervent360.domain.registry.IncidentRegistry;
@@ -18,51 +22,50 @@ import java.util.List;
 public class IncidentService {
 
     private final IncidentRepository incidentRepository;
-
+    private final AiIncidentClassifier aiClassifier;
+    private final AiConfidenceEvaluator confidenceEvaluator;
+    private final IncidentAiMapper aiMapper;
     // ============================================================
-    //                MANUAL INCIDENT SUBMISSION
+    //                INCIDENT CREATION
     // ============================================================
-    public IncidentDTO submitManualIncident(IncidentManualDTO dto) {
+    public IncidentDTO createIncident(CreateIncidentDTO dto) {
 
-        Incident incident = new Incident(
-                dto.getName(),
-                dto.getDescription(),
-                dto.getPhotos(),
-                dto.getCitizenId(),
-                dto.getLocation()
-        );
+        Incident incident;
 
-        // After constructor logic, compute type
-        incident.setIncidentType(
-                IncidentRegistry.resolveIncidentType(incident.getUrgencyLevel())
-        );
+        if (Boolean.TRUE.equals(dto.getAiEnabled())) {
+
+            incident = new Incident(
+                    dto.getDescription(),
+                    dto.getPhotos(),
+                    dto.getCitizenId(),
+                    dto.getLocation(),
+                    dto.getAiPredictedName(),   // prediction
+                    dto.getAiConfidence(),
+                    dto.getCitizenMessage()
+            );
+
+            // If user confirms final name manually
+            if (dto.getFinalName() != null) {
+                incident.updateIncidentName(dto.getFinalName());
+            }
+
+        } else {
+
+            incident = new Incident(
+                    dto.getFinalName(),
+                    dto.getDescription(),
+                    dto.getPhotos(),
+                    dto.getCitizenId(),
+                    dto.getLocation()
+            );
+        }
+
+        // Compute zone
+        incident.setZone(IncidentRegistry.resolveZone(dto.getLocation()));
 
         return IncidentMapper.toDTO(incidentRepository.save(incident));
     }
 
-
-    // ============================================================
-    //                AI-DRIVEN INCIDENT SUBMISSION
-    // ============================================================
-    public IncidentDTO submitAiIncident(IncidentAiDTO dto) {
-
-        Incident incident = new Incident(
-                dto.getDescription(),
-                dto.getPhotos(),
-                dto.getCitizenId(),
-                dto.getLocation(),
-                dto.getAiPredictedName(),
-                dto.getAiConfidence(),
-                dto.getAiPredictedUrgency()
-        );
-
-        // AI sets predicted urgency, now derive incidentType
-        incident.setIncidentType(
-                IncidentRegistry.resolveIncidentType(dto.getAiPredictedUrgency())
-        );
-
-        return IncidentMapper.toDTO(incidentRepository.save(incident));
-    }
 
 
     // ============================================================
