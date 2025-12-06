@@ -7,7 +7,9 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
+import tn.intervent360.intervent360.domain.model.team.Team;
 
+import java.util.Date;
 import java.util.UUID;
 
 @Document(collection = "users")
@@ -28,6 +30,18 @@ public class User {
     private String password; // stored hashed
     @Getter
     private Role role;
+
+    @Getter @Setter
+    Team team;
+
+    @Getter @Setter
+    Date shiftStart;
+
+    @Getter @Setter
+    Date shiftEnd;
+
+    @Getter @Setter
+    int maxDailyHours;
 
 
     //Only for technicians and leaders, ignored for others

@@ -4,6 +4,7 @@ package tn.intervent360.intervent360.application.service.user;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 import tn.intervent360.intervent360.domain.model.user.User;
 import tn.intervent360.intervent360.domain.model.user.Role;
 import tn.intervent360.intervent360.domain.repository.TeamRepository;
@@ -66,6 +67,27 @@ public class UserService {
     public Optional<UserDTO> findByEmail(String email) {
         Optional<User> returnedUser= userRepository.findByEmail(email);
         return returnedUser.map(UserMapper::toUserDTO);
+    }
+
+    public List<UserDTO> findByTeamID(String id) {
+        return userRepository.findByTeamId(id)
+                .stream()
+                .map(UserMapper::toUserDTO)
+                .toList();
+    }
+
+    public List<UserDTO> findBySpeciality(ProfessionalSpeciality speciality) {
+        return userRepository.findBySpeciality(speciality)
+                .stream()
+                .map(UserMapper::toUserDTO)
+                .toList();
+    }
+
+    public List<UserDTO> findByRole(Role role) {
+        return userRepository.findByRole(role)
+                .stream()
+                .map(UserMapper::toUserDTO)
+                .toList();
     }
 
     // ============================

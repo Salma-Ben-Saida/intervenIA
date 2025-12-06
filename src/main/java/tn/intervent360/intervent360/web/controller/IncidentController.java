@@ -72,7 +72,7 @@ public class IncidentController {
         return ResponseEntity.ok(incidentService.findByCitizenId(citizenId));
     }
 
-    @PostMapping("/search/{zone}")
+    @GetMapping("/search/{zone}")
     public ResponseEntity<List<IncidentDTO>> getByZone(@PathVariable Zone zone) {
         return ResponseEntity.ok(incidentService.findByZone(zone));
     }

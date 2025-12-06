@@ -86,10 +86,7 @@ public class Incident {
         this.zone= IncidentRegistry.resolveZone(location);
 
         // Resolve speciality
-        this.speciality = Collections.singletonList(IncidentRegistry.getSpecialities(name)
-                .stream()
-                .findFirst()
-                .orElse(null));
+        this.speciality = IncidentRegistry.getSpecialities(name);
 
         // Resolve urgency
         this.urgencyLevel = IncidentRegistry.getDefaultUrgency(name);
@@ -97,13 +94,6 @@ public class Incident {
         // Resolve type
         this.incidentType = IncidentRegistry.resolveIncidentType(this.urgencyLevel);
     }
-
-    // =========================================================
-    //            Zone resolver method
-    // =========================================================
-
-
-
 
     // =========================================================
     //            CONSTRUCTOR — AI-BASED SUBMISSION
@@ -140,11 +130,8 @@ public class Incident {
         // Automatically infer incident type based on predicted urgency
         this.incidentType = IncidentRegistry.resolveIncidentType(this.urgencyLevel);
 
-        // Predicted speciality (not official)
-        this.speciality = Collections.singletonList(IncidentRegistry.getSpecialities(aiPredictedName)
-                .stream()
-                .findFirst()
-                .orElse(null));
+        // Predicted speciality
+        this.speciality = IncidentRegistry.getSpecialities(aiPredictedName);
     }
 
 
@@ -163,20 +150,16 @@ public class Incident {
         if (this.aiPredictedName != null) {
             this.name = this.aiPredictedName;
 
-            this.speciality = Collections.singletonList(IncidentRegistry.getSpecialities(this.aiPredictedName)
-                    .stream()
-                    .findFirst()
-                    .orElse(null));
+            this.speciality = IncidentRegistry.getSpecialities(aiPredictedName);
+
         }
     }
 
     public void updateIncidentName(IncidentName newName) {
         this.name = newName;
 
-        this.speciality = Collections.singletonList(IncidentRegistry.getSpecialities(newName)
-                .stream()
-                .findFirst()
-                .orElse(null));
+        this.speciality = IncidentRegistry.getSpecialities(newName);
+
 
         this.urgencyLevel = IncidentRegistry.getDefaultUrgency(newName);
 

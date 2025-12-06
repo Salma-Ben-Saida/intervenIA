@@ -4,10 +4,13 @@ package tn.intervent360.intervent360.web.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
+import tn.intervent360.intervent360.domain.model.user.Role;
 import tn.intervent360.intervent360.web.dto.UserDTO;
 import tn.intervent360.intervent360.application.service.user.UserService;
 
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/users")
@@ -38,6 +41,27 @@ public class UserController {
     @GetMapping
     public ResponseEntity<List<UserDTO>> getAllUsers() {
         return ResponseEntity.ok(userService.getAllUsers());
+    }
+
+    @GetMapping("/team/{id}")
+    public ResponseEntity<List<UserDTO>> getByTeamId(@PathVariable String id) {
+        return ResponseEntity.ok(userService.findByTeamID(id));
+    }
+
+    @GetMapping("/role/{role}")
+    public ResponseEntity<List<UserDTO>> getByRole(@PathVariable Role role) {
+        return ResponseEntity.ok(userService.findByRole(role));
+    }
+
+
+    @GetMapping("/speciality/{speciality}")
+    public ResponseEntity<List<UserDTO>> getBySpeciality(@PathVariable ProfessionalSpeciality speciality) {
+        return ResponseEntity.ok(userService.findBySpeciality(speciality));
+    }
+
+    @GetMapping("/email/{email}")
+    public ResponseEntity<Optional<UserDTO>> getByEmail(@PathVariable String email) {
+        return ResponseEntity.ok(userService.findByEmail(email));
     }
 
     // ============================

@@ -29,9 +29,21 @@ public class AiPromptBuilder {
 
              <CITIZEN_MESSAGE>
              A short, reassuring safety message.
-             If the incident is not recognized, YOU MUST begin the message with:
-             "Unrecognized incident. Please try rewriting your description or submit manually."
-             Then provide suggestions.
+             If the incident is recognized:
+                
+              - Begin the message with: "We have recognized the incident as <NAME>."
+              - Tell the user to click the "Confirm Reporting" button to validate the classification.
+              - Tell the user that if the predicted name is incorrect, they can retry the classification by rewriting their description.
+              - Provide brief, relevant safety recommendations while they wait (based on the type of incident).
+    
+              If the incident is NOT recognized:
+    
+              - Begin the message with: "Unrecognized incident. Please try rewriting your description or submit manually."
+              - Provide suggestions or clarifying questions that could help the user rephrase their report.
+                
+             
+             
+             
              </CITIZEN_MESSAGE>
 
              =====================

@@ -13,6 +13,9 @@ public class UserMapper {
         userDTO.setRole(user.getRole());
         userDTO.setIsAvailable(user.getIsAvailable());
         userDTO.setSpeciality(user.getSpeciality());
+        userDTO.setShiftStart(user.getShiftStart());
+        userDTO.setShiftEnd(user.getShiftEnd());
+        userDTO.setMaxDailyHours(user.getMaxDailyHours());
         return userDTO;
     }
 
@@ -24,6 +27,9 @@ public class UserMapper {
         user.setIsAvailable(userDTO.getIsAvailable());
         user.setRole(userDTO.getRole());
         user.setSpeciality(userDTO.getSpeciality());
+        user.setShiftStart(userDTO.getShiftStart());
+        user.setShiftEnd(userDTO.getShiftEnd());
+        user.setMaxDailyHours(userDTO.getMaxDailyHours());
         return user;
     }
 }

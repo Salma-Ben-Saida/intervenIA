@@ -44,11 +44,6 @@ public class IncidentService {
                     dto.getCitizenMessage()
             );
 
-            // If user confirms final name manually
-            if (dto.getFinalName() != null) {
-                incident.updateIncidentName(dto.getFinalName());
-            }
-
         } else {
 
             incident = new Incident(

@@ -37,6 +37,7 @@ public class IncidentMapper {
         );
 
         dto.setZone(entity.getZone());
+        dto.setLocation(entity.getLocation());
 
         return dto;
     }
