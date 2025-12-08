@@ -17,6 +17,8 @@ public interface IncidentRepository extends MongoRepository<Incident, String> {
     List<Incident> findByCitizenId(String citizenId);
 
     List<Incident> findByIncidentStatus(IncidentStatus status);
+
+    List<Incident> findByIncidentStatusIn(List<IncidentStatus> incidentStatuses);
     List<Incident> findByIncidentType(IncidentType status);
     List<Incident> findByUrgencyLevel(UrgencyLevel urgencyLevel);
     List<Incident> findByZone(Zone zone);

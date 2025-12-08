@@ -3,7 +3,9 @@ package tn.intervent360.intervent360.domain.registry;
 import tn.intervent360.intervent360.domain.model.equipment.equipments_per_speciality.*;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class SpecialityEquipmentRegistry {
@@ -23,8 +25,24 @@ public class SpecialityEquipmentRegistry {
         equipmentMap.put(ProfessionalSpeciality.EMERGENCY, EmergencyEquipment.class);
     }
 
-    public static Class<? extends Enum<?>> getEquipmentEnum(ProfessionalSpeciality speciality) {
-        return equipmentMap.get(speciality);
+    // Return all equipment names for ONE speciality
+    public static List<String> getEquipmentFor(ProfessionalSpeciality speciality) {
+        Class<? extends Enum<?>> enumClass = equipmentMap.get(speciality);
+
+        if (enumClass == null)
+            return List.of();
+
+        return Arrays.stream(enumClass.getEnumConstants()) // returns enum values
+                .map(Enum::name)                            // convert to String
+                .toList();
+    }
+
+    // Merge & flatten equipment from ALL specialities
+    public static List<String> getEquipmentForAll(List<ProfessionalSpeciality> specialities) {
+        return specialities.stream()
+                .flatMap(s -> getEquipmentFor(s).stream())
+                .distinct()
+                .toList();
     }
 }
 

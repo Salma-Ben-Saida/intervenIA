@@ -95,6 +95,7 @@ public class TeamService {
 
         // add to new team
         newTeam.getTechnicianIds().add(technicianId);
+        tech.setTeam(newTeam);
 
         return TeamMapper.toDTO(teamRepository.save(newTeam));
     }
