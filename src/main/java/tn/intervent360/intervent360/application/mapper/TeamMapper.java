@@ -4,6 +4,8 @@ package tn.intervent360.intervent360.application.mapper;
 import tn.intervent360.intervent360.domain.model.team.Team;
 import tn.intervent360.intervent360.web.dto.TeamDTO;
 
+import java.util.ArrayList;
+
 public class TeamMapper {
 
     public static TeamDTO toDTO(Team team) {
@@ -15,9 +17,7 @@ public class TeamMapper {
         dto.setSpeciality(team.getSpeciality());
         dto.setZone(team.getZone());
 
-        if (dto.getTechnicianIds() != null) {
-            team.getTechnicianIds().addAll(dto.getTechnicianIds());
-        }
+        dto.setTechnicianIds(new ArrayList<>(team.getTechnicianIds()));
 
         return dto;
     }

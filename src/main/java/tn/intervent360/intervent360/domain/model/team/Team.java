@@ -7,6 +7,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import tn.intervent360.intervent360.domain.model.Zone;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -16,7 +17,7 @@ public class Team {
     @Setter
     @Getter
     @Id
-    private String id;
+    private String id=UUID.randomUUID().toString();;
 
     @Setter
     @Getter
@@ -36,23 +37,25 @@ public class Team {
     private Zone zone;
 
     // Store technician IDs rather than embedding full objects
-    private final List<String> technicianIds = new ArrayList<>();
+    @Getter
+    @Setter
+    private  List<String> technicianIds = new ArrayList<>();
 
 
     // ============================
     //         CONSTRUCTORS
     // ============================
     public Team() {
-        this.id = UUID.randomUUID().toString();
+
     }
 
     public Team(String leaderId,
                 ProfessionalSpeciality speciality,
-                Zone zone) {
-        this.id = UUID.randomUUID().toString();
+                Zone zone, List<String> technicianIds) {
         this.leaderId = leaderId;
         this.speciality = speciality;
         this.zone = zone;
+        this.technicianIds.addAll(technicianIds);
     }
 
 
@@ -68,10 +71,6 @@ public class Team {
 
     public void removeTechnician(String technicianId) {
         technicianIds.remove(technicianId);
-    }
-
-    public List<String> getTechnicianIds() {
-        return List.copyOf(technicianIds);
     }
 
 

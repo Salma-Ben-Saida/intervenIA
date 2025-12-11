@@ -17,6 +17,7 @@ public class UserDTO {
     private Boolean isAvailable;
     private ProfessionalSpeciality speciality;
     private Team team;
+    private String teamId;
     private Date shiftStart;
     private Date shiftEnd;
     private int maxDailyHours;

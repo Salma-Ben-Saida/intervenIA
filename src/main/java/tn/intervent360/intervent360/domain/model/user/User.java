@@ -9,6 +9,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 import tn.intervent360.intervent360.domain.model.team.Team;
 
+import java.util.Calendar;
 import java.util.Date;
 import java.util.UUID;
 
@@ -33,6 +34,9 @@ public class User {
 
     @Getter @Setter
     Team team;
+
+    @Getter @Setter
+    String teamId;
 
     @Getter @Setter
     Date shiftStart;
@@ -69,6 +73,26 @@ public class User {
 
         //By default, a new Technician is available when added
         this.isAvailable = (role == Role.TECHNICIAN);
+    }
+
+    public void setDefaultShifts() {
+        if (this.role == Role.TECHNICIAN) {
+            Calendar calStart = Calendar.getInstance();
+            calStart.set(Calendar.HOUR_OF_DAY, 8);
+            calStart.set(Calendar.MINUTE, 0);
+            calStart.set(Calendar.SECOND, 0);
+            calStart.set(Calendar.MILLISECOND, 0);
+
+            Calendar calEnd = Calendar.getInstance();
+            calEnd.set(Calendar.HOUR_OF_DAY, 16);
+            calEnd.set(Calendar.MINUTE, 0);
+            calEnd.set(Calendar.SECOND, 0);
+            calEnd.set(Calendar.MILLISECOND, 0);
+
+            this.shiftStart = calStart.getTime();
+            this.shiftEnd = calEnd.getTime();
+        }
+
     }
 
     // -----------------------------

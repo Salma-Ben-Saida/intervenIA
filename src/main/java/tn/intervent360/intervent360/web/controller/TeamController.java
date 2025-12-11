@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import tn.intervent360.intervent360.application.service.team.TeamService;
 import tn.intervent360.intervent360.domain.model.Zone;
+import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 import tn.intervent360.intervent360.web.dto.TeamDTO;
 
 import java.util.List;
@@ -70,6 +71,11 @@ public class TeamController {
             @PathVariable String teamId,
             @RequestParam Zone zone) {
         return teamService.updateZone(teamId, zone);
+    }
+
+    @GetMapping("/speciality/{speciality}")
+    public List<TeamDTO> findBySpeciality(@PathVariable ProfessionalSpeciality speciality) {
+        return teamService.findBySpeciality(speciality);
     }
 }
 

@@ -9,7 +9,7 @@ public class UserMapper {
         userDTO.setId(user.getId());
         userDTO.setUsername(user.getUsername());
         userDTO.setEmail(user.getEmail());
-        userDTO.setPassword(user.getPassword());
+        userDTO.setPassword(null);
         userDTO.setRole(user.getRole());
         userDTO.setIsAvailable(user.getIsAvailable());
         userDTO.setSpeciality(user.getSpeciality());
@@ -25,13 +25,8 @@ public class UserMapper {
         user.setEmail(userDTO.getEmail());
         user.setPassword(userDTO.getPassword());
         user.setUsername(userDTO.getUsername());
-        user.setIsAvailable(userDTO.getIsAvailable());
         user.setRole(userDTO.getRole());
         user.setSpeciality(userDTO.getSpeciality());
-        user.setShiftStart(userDTO.getShiftStart());
-        user.setShiftEnd(userDTO.getShiftEnd());
-        user.setMaxDailyHours(userDTO.getMaxDailyHours());
-        user.setTeam(userDTO.getTeam());
         return user;
     }
 }

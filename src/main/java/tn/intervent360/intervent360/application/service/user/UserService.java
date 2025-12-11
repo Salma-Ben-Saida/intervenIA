@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
+import tn.intervent360.intervent360.domain.model.team.Team;
 import tn.intervent360.intervent360.domain.model.user.User;
 import tn.intervent360.intervent360.domain.model.user.Role;
 import tn.intervent360.intervent360.domain.repository.TeamRepository;
@@ -28,23 +29,88 @@ public class UserService {
     // ============================
 
     public UserDTO createUser(UserDTO dto) {
+
         if (userRepository.existsByEmail(dto.getEmail())) {
             throw new IllegalArgumentException("Email already exists");
         }
 
+        // Convert DTO → User (only simple fields + teamId)
         User user = UserMapper.toUser(dto);
 
-        // Encrypt password before saving
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
+        user.setDefaultShifts();
 
-        // By default: technicians are available
-        if (dto.getRole() == Role.TECHNICIAN) {
-            user.setIsAvailable(true);
+        if (user.getRole() != Role.CITIZEN) {
+            user.setMaxDailyHours(8);
         }
 
+        // Save once to generate ID (required BEFORE putting him inside team)
         User saved = userRepository.save(user);
+
+        // ===============================================
+        //        CASE 1 — Technician creation
+        // ===============================================
+        if (saved.getRole() == Role.TECHNICIAN) {
+
+            if (dto.getTeamId() == null) {
+                throw new IllegalArgumentException("Technician must have a teamId");
+            }
+
+            Team team = teamRepository.findById(dto.getTeamId())
+                    .orElseThrow(() -> new IllegalArgumentException("Team not found: " + dto.getTeamId()));
+
+            // Add technician to team
+            team.addTechnician(saved.getId());
+            Team updatedTeam = teamRepository.save(team);
+
+            // Embed team object in technician
+            saved.setTeam(updatedTeam);
+            saved.setIsAvailable(true);
+            saved = userRepository.save(saved);
+
+            // Update leader embedded team
+            if (updatedTeam.getLeaderId() != null) {
+                userRepository.findById(updatedTeam.getLeaderId()).ifPresent(leader -> {
+                    leader.setTeam(updatedTeam);
+                    userRepository.save(leader);
+                });
+            }
+
+            return UserMapper.toUserDTO(saved);
+        }
+
+        // ===============================================
+        //        CASE 2 — Leader creation
+        // ===============================================
+        if (saved.getRole() == Role.LEADER && dto.getTeamId() != null) {
+
+            Team team = teamRepository.findById(dto.getTeamId())
+                    .orElseThrow(() -> new IllegalArgumentException("Team not found: " + dto.getTeamId()));
+
+            // Assign leader
+            team.setLeaderId(saved.getId());
+            Team updatedTeam = teamRepository.save(team);
+
+            // Embed in leader
+            saved.setTeam(updatedTeam);
+            saved = userRepository.save(saved);
+
+            // Update embedded team in all technicians of this team
+            for (String techId : updatedTeam.getTechnicianIds()) {
+                userRepository.findById(techId).ifPresent(tech -> {
+                    tech.setTeam(updatedTeam);
+                    userRepository.save(tech);
+                });
+            }
+
+            return UserMapper.toUserDTO(saved);
+        }
+
+        // Citizen or leader with no team
         return UserMapper.toUserDTO(saved);
     }
+
+
 
     // ============================
     //            READ
@@ -116,15 +182,31 @@ public class UserService {
     // ============================
 
     public void deleteUser(String id) {
-        if (!userRepository.existsById(id)) {
-            throw new IllegalArgumentException("User not found");
+
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        // CASE 1 — If user is a technician: remove from team
+        if (user.getRole() == Role.TECHNICIAN) {
+
+            if (user.getTeam() != null) {
+                String teamId = user.getTeam().getId();
+
+                teamRepository.findById(teamId).ifPresent(team -> {
+                    team.removeTechnician(id);
+                    teamRepository.save(team);
+                });
+            }
         }
 
-        // Check if the user is a leader
-        teamRepository.findByLeaderId(id).ifPresent(team -> {
-            team.setLeaderId(null);
-            teamRepository.save(team);
-        });
+        // CASE 2 — If user is a leader: clear leaderId
+        if (user.getRole() == Role.LEADER) {
+
+            teamRepository.findByLeaderId(id).ifPresent(team -> {
+                team.setLeaderId(null);
+                teamRepository.save(team);
+            });
+        }
 
         userRepository.deleteById(id);
     }

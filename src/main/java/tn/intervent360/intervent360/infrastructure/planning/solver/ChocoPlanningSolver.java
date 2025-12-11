@@ -2,6 +2,7 @@ package tn.intervent360.intervent360.infrastructure.planning.solver;
 
 import lombok.extern.slf4j.Slf4j;
 import org.chocosolver.solver.Model;
+import org.chocosolver.solver.variables.BoolVar;
 import org.chocosolver.solver.variables.IntVar;
 import org.springframework.stereotype.Component;
 import tn.intervent360.intervent360.application.service.planning.expansion.ExpandedPlanningTask;
@@ -91,18 +92,62 @@ public class ChocoPlanningSolver {
             model.arithm(startTimes[i], "<=", (int) t.getDeadline()).post();
 
             // shift constraint
+            // If techChoice[i] == k:
+            //   start >= shiftStart[k]
+            //   start + duration <= shiftEnd[k]
+            //-----------------------------------------------------
             for (int k = 0; k < techCount; k++) {
+
                 PlanningTechnician tech = techs.get(k);
+                int shiftStart = (int) tech.getShiftStart();
+                int shiftEnd = (int) tech.getShiftEnd();
+                int dur = t.getEstimatedDurationHours();
 
                 model.ifThen(
                         model.arithm(techChoice[i], "=", k),
                         model.and(
-                                model.arithm(startTimes[i], ">=", (int) tech.getShiftStart()),
-                                model.arithm(startTimes[i], "+", t.getEstimatedDurationHours())
+                                model.arithm(startTimes[i], ">=", shiftStart),
+                                model.arithm((IntVar) startTimes[i].add(dur), "<=", shiftEnd)
                         )
                 );
             }
         }
+
+        //=====================================================
+        // NO-OVERLAP CONSTRAINT 
+        //
+        // For each pair of tasks A, B assigned to the same technician:
+        //
+        //    (endA <= startB) OR (endB <= startA)
+        //
+        // End = start + duration
+        //=====================================================
+        for (int i = 0; i < taskCount; i++) {
+            for (int j = i + 1; j < taskCount; j++) {
+
+                ExpandedPlanningTask ti = tasks.get(i);
+                ExpandedPlanningTask tj = tasks.get(j);
+
+                int durI = ti.getEstimatedDurationHours();
+                int durJ = tj.getEstimatedDurationHours();
+
+                // Boolean var: true if same tech
+                BoolVar sameTech = model.arithm(techChoice[i], "=", techChoice[j]).reify();
+
+                // Condition1: task i finishes before task j starts
+                BoolVar iBeforeJ = model.arithm((IntVar) startTimes[i].add(durI), "<=", startTimes[j]).reify();
+
+                // Condition2: task j finishes before task i starts
+                BoolVar jBeforeI = model.arithm((IntVar) startTimes[j].add(durJ), "<=", startTimes[i]).reify();
+
+                // If same tech, enforce non-overlap
+                model.ifThen(
+                        sameTech,
+                        model.or(iBeforeJ, jBeforeI)
+                );
+            }
+        }
+
 
         // -----------------------------------------
         // Solve
