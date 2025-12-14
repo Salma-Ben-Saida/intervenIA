@@ -7,32 +7,14 @@ import org.chocosolver.solver.variables.IntVar;
 import org.springframework.stereotype.Component;
 import tn.intervent360.intervent360.application.service.planning.expansion.ExpandedPlanningTask;
 import tn.intervent360.intervent360.domain.model.planning.*;
+import tn.intervent360.intervent360.domain.model.incident.IncidentType;
+import tn.intervent360.intervent360.domain.model.incident.UrgencyLevel;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * The ChocoPlanningSolver is the optimization engine for IntervenIA.
- *
- * It receives a fully constructed PlanningProblem and produces:
- *  • A feasible schedule (start times + selected technician)
- *  • Or an infeasible result with explanations
- *
- * Solver constraints:
- *  ----------------------------------------------------
- *  (1) speciality match (each task requires one speciality)
- *  (2) zone match (technician must operate in incident zone)
- *  (3) technician availability (isAvailable == true)
- *  (4) shift boundaries (start >= shiftStart, end <= shiftEnd)
- *  (5) earliestStart / deadline
- *  (6) maxDailyHours
- *  (7) weeklyHoursAssigned cannot exceed (maxDailyHours * 7)
- *
- * Output:
- *  ----------------------------------------------------
- *  A PlanningSolution containing a list of PlanningAssignment objects.
- *
- */
 @Slf4j
 @Component
 public class ChocoPlanningSolver {
@@ -40,158 +22,219 @@ public class ChocoPlanningSolver {
     public PlanningSolution solve(PlanningProblem problem) {
 
         List<ExpandedPlanningTask> tasks = problem.getTasks();
-        List<PlanningTechnician> techs = problem.getTechnicians();
+        List<PlanningTechnician> techs   = problem.getTechnicians();
+
         int taskCount = tasks.size();
         int techCount = techs.size();
-        int horizon = problem.getPlanningHorizonHours();
+        int horizon   = problem.getPlanningHorizonHours();
 
-        Model model = new Model("IntervenIA Solver");
+        Model model = new Model("Intervent360 Solver");
 
-        // Decision variables
-        IntVar[] startTimes = model.intVarArray("start", taskCount, 0, horizon);
-        IntVar[] techChoice = model.intVarArray("tech", taskCount, 0, techCount - 1);
+        // Start time = hours since planningStart
+        IntVar[] start   = model.intVarArray("start", taskCount, 0, horizon);
+        IntVar[] techVar = model.intVarArray("tech", taskCount, 0, techCount - 1);
 
-        // -----------------------------------------
-        // Constraints
-        // -----------------------------------------
+        // =================================================
+        // TASK → TECH + TIME CONSTRAINTS
+        // =================================================
         for (int i = 0; i < taskCount; i++) {
 
-            ExpandedPlanningTask t = tasks.get(i);
+            ExpandedPlanningTask task = tasks.get(i);
+            int duration = task.getEstimatedDurationHours();
 
-            // TECHNICIAN COMPATIBILITY LIST
-            List<Integer> validTechIndices = new ArrayList<>();
+            boolean criticalEmergency =
+                    task.getIncidentType() == IncidentType.EMERGENCY &&
+                            task.getUrgencyLevel() == UrgencyLevel.CRITICAL;
+
+            // ----------------------------
+            // Compatible technicians
+            // ----------------------------
+            List<Integer> validTechs = new ArrayList<>();
 
             for (int k = 0; k < techCount; k++) {
-
                 PlanningTechnician tech = techs.get(k);
 
-                boolean zoneOk = tech.getZone() == t.getZone();
-                boolean specOk = tech.getSpeciality() == t.getSpeciality();
-                boolean availOk = tech.isAvailable();
+                boolean ok =
+                        tech.isAvailable() &&
+                                tech.getZone() == task.getZone() &&
+                                tech.getSpeciality() == task.getSpeciality() &&
+                                tech.getWeeklyHoursAssigned() + duration <= tech.getMaxDailyHours() * 7;
 
-                boolean meetsHours = tech.getWeeklyHoursAssigned() + t.getEstimatedDurationHours()
-                        <= tech.getMaxDailyHours() * 7;
-
-                if (zoneOk && specOk && availOk && meetsHours) {
-                    validTechIndices.add(k);
-                }
+                if (ok) validTechs.add(k);
             }
 
-            if (validTechIndices.isEmpty()) {
-                return infeasible("No technician matches speciality/zone/hours for task " + t.getIncidentId());
+            if (validTechs.isEmpty()) {
+                log.warn(
+                        "No tech for incident={}, spec={}, zone={}, window=[{},{}]",
+                        task.getIncidentId(),
+                        task.getSpeciality(),
+                        task.getZone(),
+                        task.getEarliestStartHour(),
+                        task.getDeadlineHour()
+                );
+                return infeasible("No valid technicians for this mission.");
             }
 
-            // restrict techChoice to valid technicians
-            techChoice[i] = model.intVar(
+            techVar[i] = model.intVar(
                     "tech_" + i,
-                    validTechIndices.stream().mapToInt(Integer::intValue).toArray()
+                    validTechs.stream().mapToInt(Integer::intValue).toArray()
             );
 
-            // earliest start / deadline
-            model.arithm(startTimes[i], ">=", (int) t.getEarliestStart()).post();
-            model.arithm(startTimes[i], "<=", (int) t.getDeadline()).post();
+            // ----------------------------
+            // Time window
+            // ----------------------------
+            model.arithm(start[i], ">=", task.getEarliestStartHour()).post();
+            model.arithm(start[i], "<=", task.getDeadlineHour()).post();
 
-            // shift constraint
-            // If techChoice[i] == k:
-            //   start >= shiftStart[k]
-            //   start + duration <= shiftEnd[k]
-            //-----------------------------------------------------
-            for (int k = 0; k < techCount; k++) {
+            // ----------------------------
+            // SHIFT + ON-CALL LOGIC
+            // ----------------------------
+            int days = horizon / 24;
 
+            for (int k : validTechs) {
                 PlanningTechnician tech = techs.get(k);
-                int shiftStart = (int) tech.getShiftStart();
-                int shiftEnd = (int) tech.getShiftEnd();
-                int dur = t.getEstimatedDurationHours();
 
-                model.ifThen(
-                        model.arithm(techChoice[i], "=", k),
-                        model.and(
-                                model.arithm(startTimes[i], ">=", shiftStart),
-                                model.arithm((IntVar) startTimes[i].add(dur), "<=", shiftEnd)
-                        )
-                );
+                List<BoolVar> allowed = new ArrayList<>();
+
+                int shiftStart = tech.getShiftStart();
+                int shiftEnd   = tech.getShiftEnd();
+
+                // -------- NORMAL SHIFTS --------
+                if (shiftStart >= 0 && shiftEnd >= 0) {
+
+                    // Day / Evening shift (e.g. 07 → 15, 13 → 20)
+                    if (shiftEnd > shiftStart) {
+                        for (int d = 0; d <= days; d++) {
+                            int ws = d * 24 + shiftStart;
+                            int we = d * 24 + (shiftEnd - duration);
+                            if (we < ws) continue;
+
+                            BoolVar ge = model.arithm(start[i], ">=", ws).reify();
+                            BoolVar le = model.arithm(start[i], "<=", we).reify();
+                            allowed.add(model.and(ge, le).reify());
+                        }
+                    }
+                    // Night shift (20 → 04)
+                    else {
+                        for (int d = 0; d <= days; d++) {
+
+                            // 20 → 24
+                            int ws1 = d * 24 + shiftStart;
+                            int we1 = d * 24 + 24 - duration;
+
+                            if (we1 >= ws1) {
+                                BoolVar ge = model.arithm(start[i], ">=", ws1).reify();
+                                BoolVar le = model.arithm(start[i], "<=", we1).reify();
+                                allowed.add(model.and(ge, le).reify());
+                            }
+
+                            // 00 → 04
+                            int ws2 = (d + 1) * 24;
+                            int we2 = (d + 1) * 24 + (shiftEnd - duration);
+
+                            if (we2 >= ws2) {
+                                BoolVar ge = model.arithm(start[i], ">=", ws2).reify();
+                                BoolVar le = model.arithm(start[i], "<=", we2).reify();
+                                allowed.add(model.and(ge, le).reify());
+                            }
+                        }
+                    }
+                }
+
+                // -------- ON-CALL GAP (04 → 07) --------
+                if (tech.isOnCall() && criticalEmergency) {
+                    for (int d = 0; d <= days; d++) {
+                        int ws = d * 24 + 4;
+                        int we = d * 24 + (7 - duration);
+                        if (we < ws) continue;
+
+                        BoolVar ge = model.arithm(start[i], ">=", ws).reify();
+                        BoolVar le = model.arithm(start[i], "<=", we).reify();
+                        allowed.add(model.and(ge, le).reify());
+                    }
+                }
+
+                if (!allowed.isEmpty()) {
+                    BoolVar any = model.or(allowed.toArray(new BoolVar[0])).reify();
+                    model.ifThen(
+                            model.arithm(techVar[i], "=", k),
+                            model.arithm(any, "=", 1)
+                    );
+                }
             }
         }
 
-        //=====================================================
-        // NO-OVERLAP CONSTRAINT 
-        //
-        // For each pair of tasks A, B assigned to the same technician:
-        //
-        //    (endA <= startB) OR (endB <= startA)
-        //
-        // End = start + duration
-        //=====================================================
-        for (int i = 0; i < taskCount; i++) {
-            for (int j = i + 1; j < taskCount; j++) {
+        // =================================================
+        // NO OVERLAP FOR SAME TECH
+        // =================================================
+        for (int a = 0; a < taskCount; a++) {
+            for (int b = a + 1; b < taskCount; b++) {
 
-                ExpandedPlanningTask ti = tasks.get(i);
-                ExpandedPlanningTask tj = tasks.get(j);
+                int durA = tasks.get(a).getEstimatedDurationHours();
+                int durB = tasks.get(b).getEstimatedDurationHours();
 
-                int durI = ti.getEstimatedDurationHours();
-                int durJ = tj.getEstimatedDurationHours();
+                IntVar endA = start[a].add(durA).intVar();
+                IntVar endB = start[b].add(durB).intVar();
 
-                // Boolean var: true if same tech
-                BoolVar sameTech = model.arithm(techChoice[i], "=", techChoice[j]).reify();
+                BoolVar sameTech = model.arithm(techVar[a], "=", techVar[b]).reify();
+                BoolVar aBefore  = model.arithm(endA, "<=", start[b]).reify();
+                BoolVar bBefore  = model.arithm(endB, "<=", start[a]).reify();
 
-                // Condition1: task i finishes before task j starts
-                BoolVar iBeforeJ = model.arithm((IntVar) startTimes[i].add(durI), "<=", startTimes[j]).reify();
-
-                // Condition2: task j finishes before task i starts
-                BoolVar jBeforeI = model.arithm((IntVar) startTimes[j].add(durJ), "<=", startTimes[i]).reify();
-
-                // If same tech, enforce non-overlap
-                model.ifThen(
-                        sameTech,
-                        model.or(iBeforeJ, jBeforeI)
-                );
+                model.ifThen(sameTech, model.or(aBefore, bBefore));
             }
         }
 
+        // =================================================
+        // OBJECTIVE: earlier is better
+        // =================================================
+        IntVar totalStart = model.intVar("totalStart", 0, horizon * taskCount);
+        model.sum(start, "=", totalStart).post();
+        model.setObjective(Model.MINIMIZE, totalStart);
 
-        // -----------------------------------------
-        // Solve
-        // -----------------------------------------
-        boolean solved = model.getSolver().solve();
-        if (!solved) {
+        // =================================================
+        // SOLVE
+        // =================================================
+        if (!model.getSolver().solve()) {
             return infeasible("Choco solver could not find any feasible schedule.");
         }
 
-        // -----------------------------------------
-        // Build solution
-        // -----------------------------------------
+        // =================================================
+        // BUILD RESULT (INT → INSTANT)
+        // =================================================
+        Instant planningStart = problem.getPlanningStart();
         List<PlanningAssignment> assignments = new ArrayList<>();
 
         for (int i = 0; i < taskCount; i++) {
 
-            ExpandedPlanningTask t = tasks.get(i);
-            int start = startTimes[i].getValue();
-            int techIndex = techChoice[i].getValue();
-            PlanningTechnician tech = techs.get(techIndex);
+            ExpandedPlanningTask task = tasks.get(i);
+            PlanningTechnician tech   = techs.get(techVar[i].getValue());
+
+            int s = start[i].getValue();
+            int e = s + task.getEstimatedDurationHours();
 
             PlanningAssignment a = new PlanningAssignment();
-            a.setIncidentId(t.getIncidentId());
-            a.setSpeciality(t.getSpeciality());
-            a.setTechnicianId(tech.getTechnicianId());
+            a.setIncidentId(task.getIncidentId());
+            a.setSpeciality(task.getSpeciality());
             a.setTeamId(tech.getTeamId());
-            a.setStartTime(start);
-            a.setEndTime(start + t.getEstimatedDurationHours());
+            a.setTechnicianId(tech.getTechnicianId());
+            a.setStartTime(planningStart.plus(s, ChronoUnit.HOURS));
+            a.setEndTime(planningStart.plus(e, ChronoUnit.HOURS));
+            a.setStatus(PlanningStatus.SCHEDULED);
 
             assignments.add(a);
         }
 
-        PlanningSolution out = new PlanningSolution();
-        out.setAssignments(assignments);
-        out.setFeasible(true);
-        out.setSolverMessage("OK");
-        return out;
+        PlanningSolution sol = new PlanningSolution();
+        sol.setAssignments(assignments);
+        sol.setFeasible(true);
+        sol.setSolverMessage("OK");
+        return sol;
     }
 
-    // Utility to build infeasible solution
     private PlanningSolution infeasible(String msg) {
-        PlanningSolution s = new PlanningSolution();
-        s.setFeasible(false);
-        s.setSolverMessage(msg);
-        return s;
+        PlanningSolution p = new PlanningSolution();
+        p.setFeasible(false);
+        p.setSolverMessage(msg);
+        return p;
     }
 }

@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import tn.intervent360.intervent360.application.service.planning.PlanningService;
+import tn.intervent360.intervent360.domain.model.planning.PlanningStatus;
 import tn.intervent360.intervent360.infrastructure.planning.PlanningScheduler;
 import tn.intervent360.intervent360.domain.model.planning.PlanningSolution;
 import tn.intervent360.intervent360.domain.model.planning.PlanningAssignment;
@@ -84,6 +85,11 @@ public class PlanningController {
     @GetMapping("/incident/{incidentId}")
     public ResponseEntity<List<PlanningAssignment>> getByIncident(@PathVariable String incidentId) {
         return ResponseEntity.ok(planningService.getAssignmentsForIncident(incidentId));
+    }
+
+    @GetMapping("/plannings/{status}")
+    public ResponseEntity<List<PlanningAssignment>> getAllByStatus(@PathVariable PlanningStatus status) {
+        return ResponseEntity.ok(planningService.getAllByStatusIs(status));
     }
 
     @GetMapping("/technician/{technicianId}")

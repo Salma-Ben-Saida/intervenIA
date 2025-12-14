@@ -21,8 +21,10 @@ public class PlanningTaskMapper {
         dto.setRequiredEquipment(task.getRequiredEquipment());
         dto.setEstimatedDurationHours(task.getEstimatedDurationHours());
         dto.setPriority(task.getPriority());
-        dto.setEarliestStart(task.getEarliestStart());
-        dto.setDeadline(task.getDeadline());
+
+        // Use Instant fields now
+        dto.setEarliestStart(task.getEarliestStartHour());
+        dto.setDeadline(task.getDeadlineHour());
 
         return dto;
     }

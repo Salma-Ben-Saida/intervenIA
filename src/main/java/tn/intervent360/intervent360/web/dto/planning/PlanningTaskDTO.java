@@ -4,6 +4,7 @@ import lombok.Setter;
 import lombok.Getter;
 import tn.intervent360.intervent360.domain.model.Zone;
 
+import java.time.Instant;
 import java.util.List;
 
 @Getter
@@ -18,6 +19,6 @@ public class PlanningTaskDTO {
 
     private int estimatedDurationHours;
     private int priority;
-    private long earliestStart;
-    private long deadline;
+    private int earliestStart;
+    private int deadline;
 }

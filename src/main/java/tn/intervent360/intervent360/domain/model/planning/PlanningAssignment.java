@@ -4,6 +4,8 @@ import lombok.Getter;
 import lombok.Setter;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 
+import java.time.Instant;
+
 /**
  * Represents one scheduled intervention assignment
  * for one speciality required by the incident.
@@ -22,8 +24,8 @@ public class PlanningAssignment {
     private String teamId;
     private String technicianId;
 
-    private long startTime;
-    private long endTime;
+    private Instant startTime;
+    private Instant endTime;
 
     private PlanningStatus status = PlanningStatus.SCHEDULED;
 }

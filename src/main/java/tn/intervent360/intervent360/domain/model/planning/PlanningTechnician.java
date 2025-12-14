@@ -21,8 +21,9 @@ public class PlanningTechnician {
     private int weeklyHoursAssigned = 0;
 
 
-    private long shiftStart; // e.g. 08:00
-    private long shiftEnd;   // e.g. 18:00
+    private int shiftStart;
+    private int shiftEnd;
 
     private boolean available;
+    private boolean onCall;
 }

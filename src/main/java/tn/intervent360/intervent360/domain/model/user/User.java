@@ -9,7 +9,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 import tn.intervent360.intervent360.domain.model.team.Team;
 
-import java.util.Calendar;
 import java.util.Date;
 import java.util.UUID;
 
@@ -39,13 +38,16 @@ public class User {
     String teamId;
 
     @Getter @Setter
-    Date shiftStart;
+    int shiftStart;
 
     @Getter @Setter
-    Date shiftEnd;
+    int shiftEnd;
 
     @Getter @Setter
     int maxDailyHours;
+
+    @Getter @Setter
+    private Boolean onCall; // only for technicians (onCall missions: 4am -> 7am)
 
 
     //Only for technicians and leaders, ignored for others
@@ -63,7 +65,7 @@ public class User {
         this.id = UUID.randomUUID().toString();
     }
 
-    public User(String email, String username, String password, Role role, ProfessionalSpeciality speciality) {
+    public User(String email, String username, String password, Role role, ProfessionalSpeciality speciality, Boolean onCall, int shiftStart, int shiftEnd) {
         this.id = UUID.randomUUID().toString();
         this.username = username;
         this.email = email;
@@ -73,26 +75,10 @@ public class User {
 
         //By default, a new Technician is available when added
         this.isAvailable = (role == Role.TECHNICIAN);
-    }
+        this.onCall = onCall;
 
-    public void setDefaultShifts() {
-        if (this.role == Role.TECHNICIAN) {
-            Calendar calStart = Calendar.getInstance();
-            calStart.set(Calendar.HOUR_OF_DAY, 8);
-            calStart.set(Calendar.MINUTE, 0);
-            calStart.set(Calendar.SECOND, 0);
-            calStart.set(Calendar.MILLISECOND, 0);
-
-            Calendar calEnd = Calendar.getInstance();
-            calEnd.set(Calendar.HOUR_OF_DAY, 16);
-            calEnd.set(Calendar.MINUTE, 0);
-            calEnd.set(Calendar.SECOND, 0);
-            calEnd.set(Calendar.MILLISECOND, 0);
-
-            this.shiftStart = calStart.getTime();
-            this.shiftEnd = calEnd.getTime();
-        }
-
+        this.shiftStart = shiftStart;
+        this.shiftEnd = shiftEnd;
     }
 
     // -----------------------------
@@ -117,10 +103,8 @@ public class User {
     public void setRole(Role role) {
         this.role = role;
 
-        // If the role changes, availability rule changes
-        if (role != Role.TECHNICIAN) {
-            this.isAvailable = null;
-        }
+        this.isAvailable = (role == Role.TECHNICIAN);
+
     }
 
     public void setIsAvailable(Boolean available) {

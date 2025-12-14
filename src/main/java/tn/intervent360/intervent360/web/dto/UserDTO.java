@@ -18,8 +18,9 @@ public class UserDTO {
     private ProfessionalSpeciality speciality;
     private Team team;
     private String teamId;
-    private Date shiftStart;
-    private Date shiftEnd;
+    private int shiftStart;
+    private int shiftEnd;
     private int maxDailyHours;
+    private Boolean onCall;
 
 }

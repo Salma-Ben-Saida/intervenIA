@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 import tn.intervent360.intervent360.application.service.planning.builder.PlanningProblemBuilder;
 import tn.intervent360.intervent360.domain.model.planning.*;
 import tn.intervent360.intervent360.infrastructure.planning.solver.ChocoPlanningSolver;
-import tn.intervent360.intervent360.infrastructure.planning.solver.SolverResultMapper;
 import tn.intervent360.intervent360.domain.repository.planning.PlanningAssignmentRepository;
 
 import java.util.List;
@@ -36,6 +35,7 @@ public class PlanningService {
     private final PlanningProblemBuilder problemBuilder;
     private final ChocoPlanningSolver solver;
     private final PlanningAssignmentRepository assignmentRepository;
+    private final PlanningAssignmentRepository planningAssignmentRepository;
 
 
     /**
@@ -108,6 +108,9 @@ public class PlanningService {
 
     public List<PlanningAssignment> getAssignmentsForTeam(String teamId) {
         return assignmentRepository.findByTeamId(teamId);
+    }
+    public List<PlanningAssignment> getAllByStatusIs(PlanningStatus status) {
+        return assignmentRepository.findAllByStatusIs(status);
     }
 
 }

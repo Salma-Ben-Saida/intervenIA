@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 import tn.intervent360.intervent360.application.service.planning.expansion.ExpandedPlanningTask;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -43,4 +44,7 @@ public class PlanningProblem {
      * The solver is allowed to pick a time between 0–167.
      */
     private int planningHorizonHours = 168;
+
+    // Shared baseline for all tasks
+    private Instant planningStart;
 }

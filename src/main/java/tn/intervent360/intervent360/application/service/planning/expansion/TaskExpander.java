@@ -1,58 +1,86 @@
 package tn.intervent360.intervent360.application.service.planning.expansion;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import tn.intervent360.intervent360.domain.model.Zone;
+import tn.intervent360.intervent360.domain.model.incident.Incident;
+import tn.intervent360.intervent360.domain.model.incident.IncidentStaffingRule;
 import tn.intervent360.intervent360.domain.model.planning.PlanningTask;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
-import tn.intervent360.intervent360.domain.registry.SpecialityEquipmentRegistry;
+import tn.intervent360.intervent360.domain.registry.IncidentStaffingRegistry;
+import tn.intervent360.intervent360.domain.repository.UserRepository;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Expands a multi-speciality PlanningTask into a set of
- * atomic ExpandedPlanningTask elements.
- *
- * Example:
- *  PlanningTask for incident 123 requires:
- *      [FIRE_SAFETY, EMERGENCY]
- *
- * This class produces:
- *      - ExpandedPlanningTask(incident 123, FIRE_SAFETY)
- *      - ExpandedPlanningTask(incident 123, EMERGENCY)
- *
- * The solver operates only on expanded tasks.
- */
-
 @Component
+@RequiredArgsConstructor
 public class TaskExpander {
 
+    private final IncidentStaffingRegistry staffingRegistry;
+    private final UserRepository userRepository;
+
     /**
-     * Expands one PlanningTask into N atomic tasks,
-     * one per required speciality.
+     * Expands ONE incident into N planning tasks
      */
-    public List<ExpandedPlanningTask> expand(PlanningTask task) {
+    public List<ExpandedPlanningTask> expand(PlanningTask base, Incident incident) {
 
-        List<ExpandedPlanningTask> expanded = new ArrayList<>();
+        IncidentStaffingRule rule =
+                staffingRegistry.getRule(incident.getName());
 
-        for (ProfessionalSpeciality speciality : task.getRequiredSpecialities()) {
-
-            List<String> equipment =
-                    SpecialityEquipmentRegistry.getEquipmentFor(speciality);
-
-            ExpandedPlanningTask t = new ExpandedPlanningTask(
-                    task.getIncidentId(),
-                    speciality,
-                    task.getZone(),
-                    task.getEstimatedDurationHours(),
-                    task.getPriority(),
-                    task.getEarliestStart(),
-                    task.getDeadline(),
-                    equipment
-            );
-
-            expanded.add(t);
+        int availableTechs =
+                countAvailableTechnicians(
+                        incident.getZone(),
+                        rule.requiredSpecialities()
+                );
+        if (availableTechs == 0) {
+            return List.of(); // defer, escalate, or keep pending
         }
 
-        return expanded;
+
+        // clamp: min ≤ assigned ≤ max
+        int toAssign = Math.max(
+                rule.minTechs(),
+                Math.min(rule.maxTechs(), availableTechs)
+        );
+
+        List<ExpandedPlanningTask> tasks = new ArrayList<>();
+
+        for (ProfessionalSpeciality spec : rule.requiredSpecialities()) {
+            for (int i = 0; i < toAssign; i++) {
+
+
+                ExpandedPlanningTask t = new ExpandedPlanningTask();
+
+                t.setIncidentId(base.getIncidentId());
+                t.setZone(base.getZone());
+                t.setSpeciality(spec);
+                t.setEstimatedDurationHours(base.getEstimatedDurationHours());
+                t.setPriority(base.getPriority());
+                t.setEarliestStartHour(base.getEarliestStartHour());
+                t.setDeadlineHour(base.getDeadlineHour());
+                t.setIncidentType(base.getIncidentType());
+                t.setUrgencyLevel(base.getUrgencyLevel());
+                t.setPriority(base.getPriority());
+
+                tasks.add(t);
+            }
+        }
+
+        return tasks;
+    }
+
+    /**
+     * Counts how many technicians COULD realistically respond
+     */
+    private int countAvailableTechnicians(
+            Zone zone,
+            List<ProfessionalSpeciality> specialities
+    ) {
+        return  (int) userRepository.countByIsAvailableTrueAndSpecialityInAndTeam_Zone(
+                specialities,
+                zone
+
+        );
     }
 }

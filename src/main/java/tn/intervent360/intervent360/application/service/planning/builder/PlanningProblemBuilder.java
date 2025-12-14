@@ -4,9 +4,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import tn.intervent360.intervent360.application.service.planning.expansion.ExpandedPlanningTask;
 import tn.intervent360.intervent360.application.service.planning.expansion.TaskExpander;
-import tn.intervent360.intervent360.domain.model.incident.Incident;
-import tn.intervent360.intervent360.domain.model.incident.IncidentStatus;
+import tn.intervent360.intervent360.domain.model.incident.*;
 import tn.intervent360.intervent360.domain.model.planning.*;
+import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 import tn.intervent360.intervent360.domain.model.user.Role;
 import tn.intervent360.intervent360.domain.model.user.User;
 import tn.intervent360.intervent360.domain.repository.IncidentRepository;
@@ -15,25 +15,9 @@ import tn.intervent360.intervent360.domain.repository.UserRepository;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
-/**
- * Builds a complete PlanningProblem for the solver.
- *
- * Responsibilities:
- *  - Load incidents
- *  - Transform each one into a PlanningTask
- *  - Expand multi-speciality tasks into atomic ExpandedPlanningTask
- *  - Load teams and technicians
- *  - Build solver-ready data for ChocoPlanningSolver
- *
- * This class is used both for:
- *  - weekly batch planning
- *  - emergency-only planning
- *
- * This class does NOT solve anything.
- * It only prepares the complete problem definition.
- */
 @Component
 @RequiredArgsConstructor
 public class PlanningProblemBuilder {
@@ -43,167 +27,143 @@ public class PlanningProblemBuilder {
     private final UserRepository userRepository;
     private final TaskExpander taskExpander;
 
-    /**
-     * Builds the full weekly planning problem.
-     * Includes all pending incidents + all available technicians/teams.
-     */
+    // =====================================================
+    // PUBLIC ENTRY POINTS
+    // =====================================================
+
     public PlanningProblem buildWeeklyProblem() {
-
         List<Incident> incidents =
-                incidentRepository.findByIncidentStatusIn(List.of(IncidentStatus.PENDING, IncidentStatus.IN_PROGRESS));
-
-        return buildProblemFromIncidents(incidents);
+                incidentRepository.findByIncidentStatusIn(
+                        List.of(IncidentStatus.PENDING, IncidentStatus.IN_PROGRESS)
+                );
+        return buildProblem(incidents, false);
     }
 
-    /**
-     * Builds a problem for one emergency incident.
-     * Only includes one incident + all technicians that match zone & speciality.
-     */
     public PlanningProblem buildEmergencyProblem(String incidentId) {
-
-        Optional<Incident> opt = incidentRepository.findById(incidentId);
-
-        if (opt.isEmpty()) {
-            throw new IllegalArgumentException("Incident not found: " + incidentId);
-        }
-
-        return buildProblemFromIncidents(List.of(opt.get()));
+        Incident inc = incidentRepository.findById(incidentId)
+                .orElseThrow(() -> new IllegalArgumentException("Incident not found"));
+        return buildProblem(List.of(inc), true);
     }
 
-    /**
-     * Core builder logic used by both weekly and emergency planning.
-     */
-    private PlanningProblem buildProblemFromIncidents(List<Incident> incidents) {
+    // =====================================================
+    // CORE BUILDER
+    // =====================================================
 
-        List<PlanningTask> baseTasks = new ArrayList<>();
+    private PlanningProblem buildProblem(List<Incident> incidents, boolean emergencyMode) {
+
+        Instant planningStart = Instant.now();
+        List<ExpandedPlanningTask> expandedTasks = new ArrayList<>();
 
         for (Incident inc : incidents) {
-            baseTasks.add(toTask(inc));
+
+            int earliestHour;
+            int deadlineHour;
+
+            boolean criticalEmergency =
+                    inc.getIncidentType() == IncidentType.EMERGENCY &&
+                            inc.getUrgencyLevel() == UrgencyLevel.CRITICAL;
+
+            if (criticalEmergency) {
+                // 🚨 must start NOW
+                earliestHour = 0;
+                deadlineHour = 6;
+            } else {
+                earliestHour = 0;   // ✅ allow anytime
+                deadlineHour = earliestHour + urgencyToHours(inc.getUrgencyLevel())
+                        - estimateDuration(inc);
+            }
+
+            PlanningTask base = new PlanningTask(
+                    inc.getId(),
+                    inc.getZone(),
+                    inc.getSpeciality(),
+                    estimateDuration(inc),
+                    computePriority(inc),
+                    earliestHour,
+                    deadlineHour,
+                    inc.getIncidentType(),
+                    inc.getUrgencyLevel()
+            );
+
+            expandedTasks.addAll(taskExpander.expand(base, inc));
+
         }
-
-        // Expand multi-speciality → atomic tasks
-        List<ExpandedPlanningTask> expanded = new ArrayList<>();
-        for (PlanningTask t : baseTasks) {
-            expanded.addAll(taskExpander.expand(t));
-        }
-
-        // Load teams & technicians
-        List<PlanningTeam> planningTeams = loadTeams();
-        List<PlanningTechnician> planningTechs = loadTechnicians();
-
 
         PlanningProblem problem = new PlanningProblem();
-        problem.setTasks(expanded);
-        problem.setTeams(planningTeams);
-        problem.setTechnicians(planningTechs);
-        problem.setPlanningHorizonHours(168); // 1 week
+        problem.setPlanningStart(planningStart);
+        problem.setPlanningHorizonHours(168);
+        problem.setTasks(expandedTasks);
+        problem.setTeams(loadTeams());
+        problem.setTechnicians(loadTechnicians());
 
         return problem;
     }
 
-    /**
-     * Converts domain Incident → base PlanningTask.
-     */
-    private PlanningTask toTask(Incident inc) {
+    // =====================================================
+    // TECHNICIANS
+    // =====================================================
 
-        long now = Instant.now().toEpochMilli();
-        long deadline = Instant.now().plus(24, ChronoUnit.HOURS).toEpochMilli();
-
-        return new PlanningTask(
-                inc.getId(),
-                inc.getZone(),
-                inc.getSpeciality(),  // list of required specialities
-                estimateDuration(inc),
-                computePriority(inc),
-                now,
-                deadline
-        );
-    }
-
-    /**
-     * Converts ExpandedPlanningTask → PlanningTask for solver.
-     */
-    private List<PlanningTask> convertExpanded(List<ExpandedPlanningTask> expanded) {
-
-        List<PlanningTask> result = new ArrayList<>();
-
-        for (ExpandedPlanningTask e : expanded) {
-
-            PlanningTask t = new PlanningTask(
-                    e.getIncidentId(),
-                    e.getZone(),
-                    List.of(e.getSpeciality()),
-                    e.getEstimatedDurationHours(),
-                    e.getPriority(),
-                    e.getEarliestStart(),
-                    e.getDeadline()
-            );
-
-            // Replace computed equipment
-            t.setRequiredEquipment(e.getRequiredEquipment());
-
-            result.add(t);
-        }
-
-        return result;
-    }
-
-    /**
-     * Convert DB Team → PlanningTeam.
-     */
-    private List<PlanningTeam> loadTeams() {
-        return teamRepository.findAll()
-                .stream()
-                .map(team -> {
-                    PlanningTeam pt = new PlanningTeam();
-                    pt.setTeamId(team.getId());
-                    pt.setName(team.getName());
-                    pt.setSpeciality(team.getSpeciality());
-                    pt.setZone(team.getZone());
-                    pt.setTechnicianIds(team.getTechnicianIds());
-                    return pt;
-                })
-                .toList();
-    }
-
-    /**
-     * Convert DB User → PlanningTechnician.
-     */
     private List<PlanningTechnician> loadTechnicians() {
 
-        return userRepository.findByRole(Role.TECHNICIAN)
-                .stream()
-                .map(this::toPlanningTechnician)
-                .toList();
+        List<User> users = userRepository.findByRole(Role.TECHNICIAN);
+        List<PlanningTechnician> out = new ArrayList<>();
+
+        for (User u : users) {
+            if (u.getTeam() == null) continue;
+            if (!Boolean.TRUE.equals(u.getIsAvailable())) continue;
+
+            PlanningTechnician p = new PlanningTechnician();
+            p.setTechnicianId(u.getId());
+            p.setTeamId(u.getTeam().getId());
+            p.setSpeciality(u.getSpeciality());
+            p.setZone(u.getTeam().getZone());
+            p.setAvailable(true);
+            p.setMaxDailyHours(u.getMaxDailyHours());
+            p.setWeeklyHoursAssigned(0);
+
+            boolean allowedOnCall =
+                    u.getSpeciality() == ProfessionalSpeciality.EMERGENCY ||
+                            u.getSpeciality() == ProfessionalSpeciality.FIRE_SAFETY ||
+                            u.getSpeciality() == ProfessionalSpeciality.GAZ ||
+                            u.getSpeciality() == ProfessionalSpeciality.ELECTRICITY;
+
+            p.setOnCall(Boolean.TRUE.equals(u.getOnCall()) && allowedOnCall);
+
+            // 👇 SHIFT LOGIC (VERY IMPORTANT)
+            if (u.getShiftStart() == 0 && u.getShiftEnd() == 0) {
+                // ON-CALL ONLY
+                p.setShiftStart(-1);
+                p.setShiftEnd(-1);
+            } else {
+                p.setShiftStart(u.getShiftStart());
+                p.setShiftEnd(u.getShiftEnd());
+            }
+
+
+            out.add(p);
+        }
+        return out;
     }
 
-    private PlanningTechnician toPlanningTechnician(User tech) {
+    // =====================================================
+    // TEAMS
+    // =====================================================
 
-        PlanningTechnician p = new PlanningTechnician();
-
-        p.setTechnicianId(tech.getId());
-        p.setTeamId(tech.getTeam().getId());
-        p.setSpeciality(tech.getSpeciality());
-        p.setZone(tech.getTeam().getZone());
-        p.setAvailable(Boolean.TRUE.equals(tech.getIsAvailable()));
-
-        p.setMaxDailyHours(tech.getMaxDailyHours());
-        p.setCurrentAssignedHours(0);
-
-        if (tech.getShiftStart() != null) {
-            p.setShiftStart(tech.getShiftStart().getTime());
-        }
-
-        if (tech.getShiftEnd() != null) {
-            p.setShiftEnd(tech.getShiftEnd().getTime());
-        }
-
-        return p;
+    private List<PlanningTeam> loadTeams() {
+        return teamRepository.findAll().stream().map(team -> {
+            PlanningTeam pt = new PlanningTeam();
+            pt.setTeamId(team.getId());
+            pt.setName(team.getName());
+            pt.setZone(team.getZone());
+            pt.setSpeciality(team.getSpeciality());
+            pt.setTechnicianIds(team.getTechnicianIds());
+            return pt;
+        }).toList();
     }
 
-    // ------------------------------
-    // Utility estimation methods
-    // ------------------------------
+    // =====================================================
+    // HELPERS
+    // =====================================================
 
     private int estimateDuration(Incident inc) {
         return switch (inc.getUrgencyLevel()) {
@@ -220,6 +180,15 @@ public class PlanningProblemBuilder {
             case HIGH -> 70;
             case MEDIUM -> 40;
             default -> 10;
+        };
+    }
+
+    private int urgencyToHours(UrgencyLevel u) {
+        return switch (u) {
+            case HIGH -> 24;
+            case MEDIUM -> 48;
+            case LOW -> 120;
+            default -> 168;
         };
     }
 }

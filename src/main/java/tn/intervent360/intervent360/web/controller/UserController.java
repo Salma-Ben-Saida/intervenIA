@@ -82,5 +82,19 @@ public class UserController {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PutMapping("/{onCall}/{id}")
+    public ResponseEntity<Optional<UserDTO>> changeOnCallStatus(@PathVariable String id, @PathVariable Boolean onCall) {
+        userService.changeOnCallStatus(id, onCall);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{shiftStart}/{shiftEnd}/{id}")
+    public ResponseEntity<Optional<UserDTO>> changeShifts(@PathVariable String id, @PathVariable int shiftStart, @PathVariable int shiftEnd) {
+        userService.changeShifts(id, shiftStart, shiftEnd);
+        return ResponseEntity.noContent().build();
+    }
+
+
 }
 

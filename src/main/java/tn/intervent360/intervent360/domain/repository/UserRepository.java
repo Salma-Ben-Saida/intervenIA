@@ -2,6 +2,7 @@ package tn.intervent360.intervent360.domain.repository;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
+import tn.intervent360.intervent360.domain.model.Zone;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 import tn.intervent360.intervent360.domain.model.user.Role;
 import tn.intervent360.intervent360.domain.model.user.User;
@@ -19,4 +20,9 @@ public interface UserRepository extends MongoRepository<User, String> {
     List<User> findByTeamId(String id);
 
     boolean existsByEmail(String email);
+
+    long countByIsAvailableTrueAndSpecialityInAndTeam_Zone(
+            List<ProfessionalSpeciality> specialities,
+            Zone zone
+    );
 }
