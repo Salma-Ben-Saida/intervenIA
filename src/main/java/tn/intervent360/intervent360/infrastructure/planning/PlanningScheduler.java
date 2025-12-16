@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import tn.intervent360.intervent360.application.service.planning.EmergencyPlanningOrchestrator;
 import tn.intervent360.intervent360.domain.model.planning.PlanningProblem;
 import tn.intervent360.intervent360.application.service.planning.builder.PlanningProblemBuilder;
 
@@ -14,6 +15,7 @@ public class PlanningScheduler {
 
     private final AsyncPlanningExecutor asyncExecutor;
     private final PlanningProblemBuilder problemBuilder;
+    private final EmergencyPlanningOrchestrator emergencyPlanningOrchestrator;
 
     /**
      * Runs every night at 2 AM.
@@ -31,6 +33,7 @@ public class PlanningScheduler {
      */
     public void triggerEmergency(String incidentId) {
         PlanningProblem problem = problemBuilder.buildEmergencyProblem(incidentId);
-        asyncExecutor.runAsync(problem);
+
+        emergencyPlanningOrchestrator.handleEmergency(problem);
     }
 }

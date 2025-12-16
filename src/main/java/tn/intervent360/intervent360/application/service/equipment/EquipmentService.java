@@ -5,15 +5,16 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import tn.intervent360.intervent360.application.mapper.EquipmentMapper;
+import tn.intervent360.intervent360.application.service.planning.expansion.ExpandedPlanningTask;
 import tn.intervent360.intervent360.domain.model.Zone;
+import tn.intervent360.intervent360.domain.model.equipment.*;
 import tn.intervent360.intervent360.domain.model.incident.Location;
-import tn.intervent360.intervent360.domain.model.equipment.Equipment;
-import tn.intervent360.intervent360.domain.model.equipment.EquipmentStatus;
-import tn.intervent360.intervent360.domain.model.equipment.EquipmentType;
 import tn.intervent360.intervent360.domain.repository.EquipmentRepository;
 import tn.intervent360.intervent360.web.dto.EquipmentDTO;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -181,4 +182,61 @@ public class EquipmentService {
         eq.setZone(zone);
         return EquipmentMapper.toDTO(equipmentRepository.save(eq));
     }
+
+    public boolean hasEnoughEquipment(
+            List<ExpandedPlanningTask> tasks,
+            Zone zone
+    ) {
+
+        Map<EquipmentName, Integer> required = new HashMap<>();
+
+        // Aggregate once per incident (expanded tasks already share same equipment)
+        for (ExpandedPlanningTask task : tasks) {
+            if (task.getRequiredEquipment() == null) continue;
+
+            for (Map.Entry<EquipmentName, Integer> entry
+                    : task.getRequiredEquipment().entrySet()) {
+
+                required.merge(
+                        entry.getKey(),
+                        entry.getValue(),
+                        Integer::sum
+                );
+            }
+        }
+
+        // Check availability PER ZONE
+        for (Map.Entry<EquipmentName, Integer> entry : required.entrySet()) {
+
+            int available =
+                    equipmentRepository
+                            .findByEquipmentNameAndZone(entry.getKey(), zone)
+                            .stream()
+                            .filter(eq -> eq.getStatus() == EquipmentStatus.OPERATIONAL)
+                            .mapToInt(eq -> eq.getQuantity() - eq.getInUse())
+                            .sum();
+
+            if (available < entry.getValue()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+
+    //Helper method for List conversion.
+    public static List<EquipmentRequirement> toRequirements(
+            Map<EquipmentName, Integer> map
+    ) {
+        return map.entrySet().stream().map(e -> {
+            EquipmentRequirement r = new EquipmentRequirement();
+            r.setName(e.getKey());
+            r.setQuantity(e.getValue());
+            return r;
+        }).toList();
+    }
+
+
+
 }

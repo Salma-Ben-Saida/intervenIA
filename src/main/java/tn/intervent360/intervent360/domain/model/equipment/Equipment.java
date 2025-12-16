@@ -3,11 +3,10 @@ package tn.intervent360.intervent360.domain.model.equipment;
 import lombok.Setter;
 import lombok.Getter;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.index.GeoSpatialIndexed;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import tn.intervent360.intervent360.domain.model.Zone;
-import tn.intervent360.intervent360.domain.registry.EquipmentTypeRegistry;
+import tn.intervent360.intervent360.domain.registry.EquipmentRegistry;
 
 import java.util.UUID;
 
@@ -56,7 +55,7 @@ public class Equipment {
     public Equipment(EquipmentName name, Zone zone, int  quantity) {
         this.id = UUID.randomUUID().toString();
         this.equipmentName = name;
-        this.equipmentType = EquipmentTypeRegistry.getType(name);
+        this.equipmentType = EquipmentRegistry.getType(name);
         this.quantity = quantity;
         this.zone = zone;
         this.status = EquipmentStatus.OPERATIONAL; // by default
@@ -66,7 +65,7 @@ public class Equipment {
     public Equipment(EquipmentName name, Zone zone, int  quantity, String  description) {
         this.id = UUID.randomUUID().toString();
         this.equipmentName = name;
-        this.equipmentType = EquipmentTypeRegistry.getType(name);
+        this.equipmentType = EquipmentRegistry.getType(name);
         this.quantity = quantity;
         this.zone = zone;
         this.model=description;

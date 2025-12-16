@@ -6,9 +6,12 @@ import org.chocosolver.solver.variables.BoolVar;
 import org.chocosolver.solver.variables.IntVar;
 import org.springframework.stereotype.Component;
 import tn.intervent360.intervent360.application.service.planning.expansion.ExpandedPlanningTask;
+import tn.intervent360.intervent360.domain.model.equipment.EquipmentRequirement;
+import tn.intervent360.intervent360.domain.model.equipment.EquipmentUsageType;
 import tn.intervent360.intervent360.domain.model.planning.*;
 import tn.intervent360.intervent360.domain.model.incident.IncidentType;
 import tn.intervent360.intervent360.domain.model.incident.UrgencyLevel;
+import tn.intervent360.intervent360.domain.registry.EquipmentRegistry;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -19,6 +22,13 @@ import java.util.List;
 @Component
 public class ChocoPlanningSolver {
 
+
+    public ChocoPlanningSolver(EquipmentRegistry equipmentRegistry) {
+        this.equipmentRegistry = equipmentRegistry;
+    }
+    private final EquipmentRegistry equipmentRegistry;
+
+
     public PlanningSolution solve(PlanningProblem problem) {
 
         List<ExpandedPlanningTask> tasks = problem.getTasks();
@@ -28,7 +38,7 @@ public class ChocoPlanningSolver {
         int techCount = techs.size();
         int horizon   = problem.getPlanningHorizonHours();
 
-        Model model = new Model("Intervent360 Solver");
+        Model model = new Model("IntervenIA Solver");
 
         // Start time = hours since planningStart
         IntVar[] start   = model.intVarArray("start", taskCount, 0, horizon);
@@ -220,6 +230,32 @@ public class ChocoPlanningSolver {
             a.setStartTime(planningStart.plus(s, ChronoUnit.HOURS));
             a.setEndTime(planningStart.plus(e, ChronoUnit.HOURS));
             a.setStatus(PlanningStatus.SCHEDULED);
+            a.setZone(task.getZone());
+
+            List<EquipmentRequirement> used =
+                    task.getRequiredEquipment().entrySet().stream()
+                            .map(entry -> {
+
+                                EquipmentRequirement r = new EquipmentRequirement();
+                                r.setName(entry.getKey());
+                                r.setQuantity(entry.getValue());
+
+                                // 🔥 REATTACH USAGE TYPE FROM REGISTRY
+                                EquipmentUsageType usageType =
+                                        equipmentRegistry.getRequirements(task.getSpeciality())
+                                                .stream()
+                                                .filter(req -> req.getName() == entry.getKey())
+                                                .map(EquipmentRequirement::getUsageType)
+                                                .findFirst()
+                                                .orElse(null);
+
+                                r.setUsageType(usageType);
+                                return r;
+                            })
+                            .toList();
+
+            a.setEquipmentUsed(used);
+
 
             assignments.add(a);
         }

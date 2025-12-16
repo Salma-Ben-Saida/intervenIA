@@ -3,7 +3,7 @@ package tn.intervent360.intervent360.application.mapper;
 
 import tn.intervent360.intervent360.domain.model.equipment.Equipment;
 import tn.intervent360.intervent360.domain.model.equipment.EquipmentStatus;
-import tn.intervent360.intervent360.domain.registry.EquipmentTypeRegistry;
+import tn.intervent360.intervent360.domain.registry.EquipmentRegistry;
 import tn.intervent360.intervent360.web.dto.EquipmentDTO;
 public class EquipmentMapper {
 
@@ -30,7 +30,7 @@ public class EquipmentMapper {
         equipment.setId(dto.getId());
         // Set equipmentType based on the name if not provided
         equipment.setEquipmentType(
-                dto.getEquipmentType() != null ? dto.getEquipmentType() : EquipmentTypeRegistry.getType(dto.getEquipmentName())
+                dto.getEquipmentType() != null ? dto.getEquipmentType() : EquipmentRegistry.getType(dto.getEquipmentName())
         );
         equipment.setStatus(
                 dto.getStatus() != null ? dto.getStatus() : EquipmentStatus.OPERATIONAL

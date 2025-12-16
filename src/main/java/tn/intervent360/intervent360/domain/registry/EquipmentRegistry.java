@@ -1,23 +1,30 @@
 package tn.intervent360.intervent360.domain.registry;
 
+import org.springframework.stereotype.Component;
 import tn.intervent360.intervent360.domain.model.equipment.EquipmentName;
+import tn.intervent360.intervent360.domain.model.equipment.EquipmentRequirement;
 import tn.intervent360.intervent360.domain.model.equipment.EquipmentType;
-import tn.intervent360.intervent360.domain.model.equipment.equipments_per_speciality.*;
+import tn.intervent360.intervent360.domain.model.equipment.EquipmentUsageType;
+import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 
-/**
+/*
  * Central registry that maps every concrete equipment (from speciality enums)
  * to the generic EquipmentType category.
  *
  * This prevents hard-coding logic inside entities or services.
  */
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-public class EquipmentTypeRegistry {
+import static tn.intervent360.intervent360.domain.model.equipment.EquipmentUsageType.PER_MISSION;
+import static tn.intervent360.intervent360.domain.model.equipment.EquipmentUsageType.PER_TECHNICIAN;
+
+
+@Component
+public class EquipmentRegistry {
 
     private static final Map<Enum<?>, EquipmentType> typeMap = new HashMap<>();
+    private static final Map<ProfessionalSpeciality, List<EquipmentRequirement>> RULES =
+            new EnumMap<>(ProfessionalSpeciality.class);
 
     static {
 
@@ -124,6 +131,110 @@ public class EquipmentTypeRegistry {
         typeMap.put(EquipmentName.CAUTION_TAPE, EquipmentType.CONSUMABLE_MATERIALS);
         typeMap.put(EquipmentName.BASIC_TOOLKIT, EquipmentType.TECHNICAL_TOOLS);
 
+
+
+        //Equipment rules
+
+
+        // =========================
+        // ELECTRICITY
+        // =========================
+        RULES.put(ProfessionalSpeciality.ELECTRICITY, List.of(
+                req(EquipmentName.INSULATED_GLOVES, 1, PER_TECHNICIAN),
+                req(EquipmentName.INSULATED_TOOLS, 1, PER_TECHNICIAN),
+                req(EquipmentName.MULTIMETER, 1, PER_TECHNICIAN),
+                req(EquipmentName.VOLTAGE_DETECTOR, 1, PER_TECHNICIAN),
+
+                req(EquipmentName.PORTABLE_GENERATOR, 1, PER_MISSION),
+                req(EquipmentName.HYDRAULIC_LIFT_TRUCK, 1, PER_MISSION),
+                req(EquipmentName.ELECTRICAL_TOOLKIT, 1, PER_MISSION),
+                req(EquipmentName.THERMAL_CAMERA, 1, PER_MISSION)
+        ));
+
+        // =========================
+        // GAS
+        // =========================
+        RULES.put(ProfessionalSpeciality.GAZ, List.of(
+                req(EquipmentName.PROTECTIVE_GEAR, 1, PER_TECHNICIAN),
+                req(EquipmentName.GAS_LEAK_DETECTOR, 1, PER_TECHNICIAN),
+                req(EquipmentName.NON_SPARKING_TOOLS, 1, PER_TECHNICIAN),
+
+                req(EquipmentName.PIPE_WELDING_MACHINE, 1, PER_MISSION),
+                req(EquipmentName.GAS_DETECTION_METER, 1, PER_MISSION),
+                req(EquipmentName.MANOMETER, 1, PER_MISSION)
+        ));
+
+        // =========================
+        // FIRE & SAFETY
+        // =========================
+        RULES.put(ProfessionalSpeciality.FIRE_SAFETY, List.of(
+                req(EquipmentName.PROTECTIVE_GEAR, 1, PER_TECHNICIAN),
+                req(EquipmentName.FIRST_AID_KIT, 1, PER_TECHNICIAN),
+
+                req(EquipmentName.THERMAL_CAMERA, 1, PER_MISSION),
+                req(EquipmentName.HYDRANT_FLOW_METER, 1, PER_MISSION),
+                req(EquipmentName.FIRE_PUMP_PRESSURE_TEST_KIT, 1, PER_MISSION)
+        ));
+
+        // =========================
+        // PUBLIC LIGHTING
+        // =========================
+        RULES.put(ProfessionalSpeciality.PUBLIC_LIGHTING, List.of(
+                req(EquipmentName.PROTECTIVE_GLOVES, 1, PER_TECHNICIAN),
+                req(EquipmentName.LUX_METER, 1, PER_TECHNICIAN),
+
+                req(EquipmentName.LADDER, 1, PER_MISSION),
+                req(EquipmentName.LED_DRIVERS, 2, PER_MISSION),
+                req(EquipmentName.SPARE_LAMPS, 5, PER_MISSION)
+        ));
+
+        // =========================
+        // ROADS
+        // =========================
+        RULES.put(ProfessionalSpeciality.ROADS, List.of(
+                req(EquipmentName.PROTECTIVE_GLOVES, 1, PER_TECHNICIAN),
+
+                req(EquipmentName.ASPHALT_CUTTER, 1, PER_MISSION),
+                req(EquipmentName.COMPACTOR_PLATE, 1, PER_MISSION),
+                req(EquipmentName.TRAFFIC_CONES, 10, PER_MISSION),
+                req(EquipmentName.ROAD_BARRIERS, 4, PER_MISSION)
+        ));
+
+        // =========================
+        // WATER & SANITATION
+        // =========================
+        RULES.put(ProfessionalSpeciality.SANITATION, List.of(
+                req(EquipmentName.PROTECTIVE_BOOT_AND_GEAR, 1, PER_TECHNICIAN),
+
+                req(EquipmentName.DRAIN_INSPECTION_CAMERA, 1, PER_MISSION),
+                req(EquipmentName.HIGH_PRESSURE_JET, 1, PER_MISSION),
+                req(EquipmentName.SLUDGE_PUMP, 1, PER_MISSION),
+                req(EquipmentName.MANHOLE_LIFTER, 1, PER_MISSION)
+        ));
+
+        // =========================
+        // TELECOM / IOT
+        // =========================
+        RULES.put(ProfessionalSpeciality.TELECOMMUNICATION_IOT, List.of(
+                req(EquipmentName.INCIDENT_TABLET, 1, PER_TECHNICIAN),
+                req(EquipmentName.COMMUNICATION_RADIO, 1, PER_TECHNICIAN),
+
+                req(EquipmentName.OTDR, 1, PER_MISSION),
+                req(EquipmentName.FIBER_FUSION_SPLICER, 1, PER_MISSION),
+                req(EquipmentName.IOT_GATEWAY_CONFIGURATOR, 1, PER_MISSION)
+        ));
+
+        // =========================
+        // EMERGENCY (fallback / cross-speciality)
+        // =========================
+        RULES.put(ProfessionalSpeciality.EMERGENCY, List.of(
+                req(EquipmentName.FIRST_AID_KIT, 1, PER_TECHNICIAN),
+                req(EquipmentName.COMMUNICATION_RADIO, 1, PER_TECHNICIAN),
+
+                req(EquipmentName.PORTABLE_LIGHTING, 2, PER_MISSION),
+                req(EquipmentName.POWER_BANK, 2, PER_MISSION)
+        ));
+
     }
 
     /**
@@ -146,6 +257,22 @@ public class EquipmentTypeRegistry {
         }
 
         return result;
+    }
+
+    public List<EquipmentRequirement> getRequirements(ProfessionalSpeciality speciality) {
+        return RULES.getOrDefault(speciality, List.of());
+    }
+
+    private static EquipmentRequirement req(
+            EquipmentName name,
+            int quantity,
+            EquipmentUsageType type
+    ) {
+        EquipmentRequirement r = new EquipmentRequirement();
+        r.setName(name);
+        r.setQuantity(quantity);
+        r.setUsageType(type);
+        return r;
     }
 
 }

@@ -36,6 +36,7 @@ public class PlanningService {
     private final ChocoPlanningSolver solver;
     private final PlanningAssignmentRepository assignmentRepository;
     private final PlanningAssignmentRepository planningAssignmentRepository;
+    private final PlanningFinalizerService finalizer;
 
 
     /**
@@ -52,7 +53,12 @@ public class PlanningService {
         log.info("Building weekly planning problem…");
 
         PlanningProblem problem = problemBuilder.buildWeeklyProblem();
-        return execute(problem);
+        PlanningSolution solution= execute(problem);
+
+        if (solution.isFeasible()) {
+            finalizer.commitSolution(solution);
+        }
+        return solution;
     }
 
     /**
@@ -63,7 +69,12 @@ public class PlanningService {
         log.info("Building emergency planning problem for incident {}", incidentId);
 
         PlanningProblem problem = problemBuilder.buildEmergencyProblem(incidentId);
-        return execute(problem);
+        PlanningSolution solution= execute(problem);
+
+        if (solution.isFeasible()) {
+            finalizer.commitSolution(solution);
+        }
+        return solution;
     }
 
     /**

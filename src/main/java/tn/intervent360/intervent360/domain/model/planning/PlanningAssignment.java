@@ -2,9 +2,12 @@ package tn.intervent360.intervent360.domain.model.planning;
 
 import lombok.Getter;
 import lombok.Setter;
+import tn.intervent360.intervent360.domain.model.Zone;
+import tn.intervent360.intervent360.domain.model.equipment.EquipmentRequirement;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
  * Represents one scheduled intervention assignment
@@ -26,6 +29,9 @@ public class PlanningAssignment {
 
     private Instant startTime;
     private Instant endTime;
+    private Zone zone;
 
+
+    private List<EquipmentRequirement> equipmentUsed;
     private PlanningStatus status = PlanningStatus.SCHEDULED;
 }

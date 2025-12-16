@@ -1,7 +1,9 @@
 package tn.intervent360.intervent360.application.service.planning.builder;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import tn.intervent360.intervent360.application.service.equipment.EquipmentService;
 import tn.intervent360.intervent360.application.service.planning.expansion.ExpandedPlanningTask;
 import tn.intervent360.intervent360.application.service.planning.expansion.TaskExpander;
 import tn.intervent360.intervent360.domain.model.incident.*;
@@ -14,10 +16,10 @@ import tn.intervent360.intervent360.domain.repository.TeamRepository;
 import tn.intervent360.intervent360.domain.repository.UserRepository;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class PlanningProblemBuilder {
@@ -26,6 +28,7 @@ public class PlanningProblemBuilder {
     private final TeamRepository teamRepository;
     private final UserRepository userRepository;
     private final TaskExpander taskExpander;
+    private final EquipmentService equipmentService;
 
     // =====================================================
     // PUBLIC ENTRY POINTS
@@ -63,12 +66,11 @@ public class PlanningProblemBuilder {
                     inc.getIncidentType() == IncidentType.EMERGENCY &&
                             inc.getUrgencyLevel() == UrgencyLevel.CRITICAL;
 
+            earliestHour = 0;// ✅ allow anytime
             if (criticalEmergency) {
                 // 🚨 must start NOW
-                earliestHour = 0;
                 deadlineHour = 6;
             } else {
-                earliestHour = 0;   // ✅ allow anytime
                 deadlineHour = earliestHour + urgencyToHours(inc.getUrgencyLevel())
                         - estimateDuration(inc);
             }
@@ -85,7 +87,40 @@ public class PlanningProblemBuilder {
                     inc.getUrgencyLevel()
             );
 
-            expandedTasks.addAll(taskExpander.expand(base, inc));
+            List<ExpandedPlanningTask> tasksForIncident =
+                    taskExpander.expand(base, inc);
+
+            if (tasksForIncident.isEmpty()) {
+                continue;
+            }
+
+            // CHECK EQUIPMENT AVAILABILITY
+            boolean equipmentOk =
+                    equipmentService.hasEnoughEquipment(tasksForIncident, base.getZone());
+
+            if (!equipmentOk) {
+
+                // 👉 Decision point (choose ONE strategy)
+                // -------------------------------------
+
+                if (emergencyMode) {
+                    // emergency overrides equipment shortages
+                    log.warn(
+                            "Equipment shortage overridden for emergency incident {}",
+                            inc.getId()
+                    );
+                } else {
+                    // skip this incident for now
+                    log.warn(
+                            "Incident {} skipped due to insufficient equipment",
+                            inc.getId()
+                    );
+                    continue;
+                }
+            }
+
+            expandedTasks.addAll(tasksForIncident);
+
 
         }
 
