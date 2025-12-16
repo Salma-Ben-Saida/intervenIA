@@ -26,7 +26,7 @@ public class User {
 
     @Getter @Setter
     private String username;
-    @Getter
+    @Getter @Setter
     private String password; // stored hashed
     @Getter
     private Role role;
@@ -69,7 +69,7 @@ public class User {
         this.id = UUID.randomUUID().toString();
         this.username = username;
         this.email = email;
-        this.password = hashPassword(password);
+        this.password = password;
         this.role = role;
         this.speciality=speciality;
 
@@ -81,24 +81,6 @@ public class User {
         this.shiftEnd = shiftEnd;
     }
 
-    // -----------------------------
-    // Password hashing
-    // -----------------------------
-    private String hashPassword(String rawPassword) {
-        return new BCryptPasswordEncoder().encode(rawPassword);
-    }
-
-    public boolean checkPassword(String rawPassword) {
-        return new BCryptPasswordEncoder().matches(rawPassword, this.password);
-    }
-
-    // -----------------------------
-    // Getters & Setters
-    // -----------------------------
-
-    public void setPassword(String rawPassword) {
-        this.password = hashPassword(rawPassword);
-    }
 
     public void setRole(Role role) {
         this.role = role;
