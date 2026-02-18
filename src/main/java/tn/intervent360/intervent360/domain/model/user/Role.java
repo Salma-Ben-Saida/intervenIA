@@ -5,5 +5,6 @@ public enum Role {
     TECHNICIAN,
     LEADER,
     MANAGER,
-    ADMIN
+    ADMIN,
+    SUPER_ADMIN
 }
