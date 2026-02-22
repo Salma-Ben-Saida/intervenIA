@@ -8,11 +8,11 @@
         <version>4.0.0</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>tn.intervent360</groupId>
-    <artifactId>intervent360</artifactId>
+    <groupId>tn.intervenia</groupId>
+    <artifactId>intervenia</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>intervent360</name>
-    <description>intervent360</description>
+    <name>intervenia</name>
+    <description>intervenia</description>
     <url/>
     <licenses>
         <license/>
