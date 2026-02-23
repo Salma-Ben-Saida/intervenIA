@@ -3,16 +3,21 @@ package tn.intervent360.intervent360.domain.model.user;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import tn.intervent360.intervent360.domain.model.Zone;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
-import tn.intervent360.intervent360.domain.model.team.Team;
 
-import java.util.Date;
 import java.util.UUID;
 
 @Document(collection = "users")
+@CompoundIndexes({
+        @CompoundIndex(name = "user_role_available_spec_idx", def = "{role:1, isAvailable:1, speciality:1}"),
+        @CompoundIndex(name = "user_team_available_idx", def = "{teamId:1, isAvailable:1}"),
+        @CompoundIndex(name = "user_manager_scope_idx", def = "{role: 1, managedZone: 1, managedSpeciality: 1}")
+})
 public class User {
 
     @Getter
@@ -24,39 +29,42 @@ public class User {
     @Indexed(unique = true)
     private String email;
 
-    @Getter @Setter
+    @Getter @Setter @Indexed
     private String username;
     @Getter @Setter
     private String password; // stored hashed
-    @Getter
+    @Getter @Setter @Indexed
     private Role role;
 
     @Getter @Setter
-    Team team;
+    private String teamId;
 
     @Getter @Setter
-    String teamId;
+    private int shiftStart;
 
     @Getter @Setter
-    int shiftStart;
+    private int shiftEnd;
 
     @Getter @Setter
-    int shiftEnd;
-
-    @Getter @Setter
-    int maxDailyHours;
+    private int maxDailyHours;
 
     @Getter @Setter
     private Boolean onCall; // only for technicians (onCall missions: 4am -> 7am)
 
-
     //Only for technicians and leaders, ignored for others
-    @Getter @Setter
+    @Getter @Setter @Indexed
     private ProfessionalSpeciality speciality;
 
     // Only for technicians, ignored for others
-    @Getter
+    @Getter @Setter
     private Boolean isAvailable;
+
+    // Only meaningful when role == MANAGER (nullable for other roles)
+    @Getter @Setter
+    private tn.intervent360.intervent360.domain.model.Zone managedZone;
+
+    @Getter @Setter
+    private tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality managedSpeciality;
 
     // -----------------------------
     // Constructors
@@ -71,7 +79,7 @@ public class User {
         this.email = email;
         this.password = password;
         this.role = role;
-        this.speciality=speciality;
+        this.speciality = speciality;
 
         //By default, a new Technician is available when added
         this.isAvailable = (role == Role.TECHNICIAN);
@@ -81,12 +89,9 @@ public class User {
         this.shiftEnd = shiftEnd;
     }
 
-
     public void setRole(Role role) {
         this.role = role;
-
         this.isAvailable = (role == Role.TECHNICIAN);
-
     }
 
     public void setIsAvailable(Boolean available) {

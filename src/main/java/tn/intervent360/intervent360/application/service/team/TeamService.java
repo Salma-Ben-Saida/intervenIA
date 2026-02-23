@@ -22,7 +22,6 @@ public class TeamService {
 
     private final TeamRepository teamRepository;
     private final UserRepository userRepository;
-    private final TeamEmbeddingService teamEmbeddingService;
     // ---------------------------
     // CREATE TEAM
     // ---------------------------
@@ -61,9 +60,6 @@ public class TeamService {
             savedTeam = teamRepository.save(savedTeam);
         }
 
-        // Refresh embedded team for all members
-        teamEmbeddingService.refreshEmbeddedTeam(savedTeam);
-
         return TeamMapper.toDTO(savedTeam);
     }
 
@@ -91,9 +87,6 @@ public class TeamService {
         team.addTechnician(technicianId);
         Team savedTeam = teamRepository.save(team);
 
-        // Refresh embedded team
-        teamEmbeddingService.refreshEmbeddedTeam(savedTeam);
-
         return TeamMapper.toDTO(savedTeam);
     }
 
@@ -107,9 +100,6 @@ public class TeamService {
 
         team.removeTechnician(technicianId);
         Team savedTeam = teamRepository.save(team);
-
-        // Refresh embedded team
-        teamEmbeddingService.refreshEmbeddedTeam(savedTeam);
 
         return TeamMapper.toDTO(savedTeam);
     }
@@ -135,9 +125,6 @@ public class TeamService {
         team.setLeaderId(newLeaderId);
         Team savedTeam = teamRepository.save(team);
 
-        // Refresh embedded team
-        teamEmbeddingService.refreshEmbeddedTeam(savedTeam);
-
         return TeamMapper.toDTO(savedTeam);
     }
 
@@ -151,9 +138,6 @@ public class TeamService {
 
         team.setZone(zone);
         Team savedTeam = teamRepository.save(team);
-
-        // Refresh embedded team
-        teamEmbeddingService.refreshEmbeddedTeam(savedTeam);
 
         return TeamMapper.toDTO(savedTeam);
     }
@@ -173,16 +157,26 @@ public class TeamService {
 
 
     public void delete(String teamId) {
-        Team team = teamRepository.findById(teamId) .orElseThrow(() -> new RuntimeException("Team not found"));
-        // 1. Clear leader.team
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new RuntimeException("Team not found"));
+
+        // 1. Clear teamId on the leader
         if (team.getLeaderId() != null) {
             userRepository.findById(team.getLeaderId()).ifPresent(leader -> {
-                leader.setTeam(null);
-                userRepository.save(leader); }); }
-        // 2. Clear technician.team
-        //for all technicians in this team
+                leader.setTeamId(null);
+                userRepository.save(leader);
+            });
+        }
+
+        // 2. Clear teamId on all technicians
         for (String techId : team.getTechnicianIds()) {
-            userRepository.findById(techId).ifPresent(tech -> { tech.setTeam(null);
-                userRepository.save(tech); }); } // 3. Delete the team itself
-         teamRepository.deleteById(teamId); }
+            userRepository.findById(techId).ifPresent(tech -> {
+                tech.setTeamId(null);
+                userRepository.save(tech);
+            });
+        }
+
+        // 3. Delete the team
+        teamRepository.deleteById(teamId);
+    }
 }

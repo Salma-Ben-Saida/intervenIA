@@ -2,10 +2,7 @@ package tn.intervent360.intervent360.web.dto;
 
 import lombok.Data;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
-import tn.intervent360.intervent360.domain.model.team.Team;
 import tn.intervent360.intervent360.domain.model.user.Role;
-
-import java.util.Date;
 
 @Data
 public class UserDTO {
@@ -16,11 +13,13 @@ public class UserDTO {
     private Role role;
     private Boolean isAvailable;
     private ProfessionalSpeciality speciality;
-    private Team team;
     private String teamId;
     private int shiftStart;
     private int shiftEnd;
     private int maxDailyHours;
     private Boolean onCall;
 
+    // Manager scope (nullable for non-managers)
+    private tn.intervent360.intervent360.domain.model.Zone managedZone;
+    private ProfessionalSpeciality managedSpeciality;
 }

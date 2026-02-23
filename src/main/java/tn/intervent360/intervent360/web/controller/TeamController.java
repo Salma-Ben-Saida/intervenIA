@@ -8,6 +8,7 @@ import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 import tn.intervent360.intervent360.web.dto.TeamDTO;
 
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/teams")
@@ -77,6 +78,11 @@ public class TeamController {
     @GetMapping("/speciality/{speciality}")
     public List<TeamDTO> findBySpeciality(@PathVariable ProfessionalSpeciality speciality) {
         return teamService.findBySpeciality(speciality);
+    }
+
+    @GetMapping("/leader/{leaderId}")
+    public TeamDTO findByLeaderId(@PathVariable String leaderId){
+        return teamService.findByLeaderId(leaderId);
     }
 }
 

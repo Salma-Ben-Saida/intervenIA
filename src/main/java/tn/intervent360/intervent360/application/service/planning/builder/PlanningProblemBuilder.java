@@ -18,6 +18,9 @@ import tn.intervent360.intervent360.domain.repository.UserRepository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import tn.intervent360.intervent360.domain.model.team.Team;
 
 @Slf4j
 @Component
@@ -143,15 +146,22 @@ public class PlanningProblemBuilder {
         List<User> users = userRepository.findByRole(Role.TECHNICIAN);
         List<PlanningTechnician> out = new ArrayList<>();
 
+        // Preload teams into a map for quick lookups
+        Map<String, Team> teamMap = teamRepository.findAll().stream()
+                .collect(Collectors.toMap(Team::getId, t -> t));
+
         for (User u : users) {
-            if (u.getTeam() == null) continue;
+            if (u.getTeamId() == null) continue;
             if (!Boolean.TRUE.equals(u.getIsAvailable())) continue;
+
+            Team team = teamMap.get(u.getTeamId());
+            if (team == null) continue;
 
             PlanningTechnician p = new PlanningTechnician();
             p.setTechnicianId(u.getId());
-            p.setTeamId(u.getTeam().getId());
+            p.setTeamId(team.getId());
             p.setSpeciality(u.getSpeciality());
-            p.setZone(u.getTeam().getZone());
+            p.setZone(team.getZone());
             p.setAvailable(true);
             p.setMaxDailyHours(u.getMaxDailyHours());
             p.setWeeklyHoursAssigned(0);

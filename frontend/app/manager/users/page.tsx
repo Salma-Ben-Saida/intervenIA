@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,7 +8,7 @@ import { InterveniaLogo } from "@/components/intervenia-logo"
 import {
   Menu, Bell, Users, ArrowLeft, Search, Plus, Edit, Trash2,
   AlertCircle, Loader2, Shield, Wrench, User, Filter,
-  ChevronDown, ChevronUp, UserMinus, MapPin, Star
+  ChevronDown, ChevronUp, ChevronRight, UserMinus, MapPin, Star
 } from "lucide-react"
 
 const API_USERS = "http://localhost:8080/api/users"
@@ -46,6 +46,8 @@ interface UserDTO {
 }
 
 const ROLES: Role[] = ["CITIZEN", "TECHNICIAN", "LEADER", "MANAGER", "ADMIN", "SUPER_ADMIN"]
+// Manager can only manage technicians and leaders
+const MANAGEABLE_ROLES: Role[] = ["TECHNICIAN", "LEADER"]
 const SPECIALITIES: ProfessionalSpeciality[] = [
   "PUBLIC_LIGHTING", "ELECTRICITY", "TRAFFIC_SIGNALS", "GAZ",
   "SANITATION", "ROADS", "ENVIRONMENT", "FIRE_SAFETY",
@@ -57,11 +59,11 @@ const fmt = (s?: string) => s?.replace(/_/g, " ") ?? "—"
 const initials = (name?: string) =>
     name?.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) ?? "?"
 
+// Utility to shorten ObjectId-like strings for badges
+const shortId = (id?: string | null) => (id ? id.slice(0, 8) + "..." : "—")
+
 const getRoleColor = (role: Role) => {
   switch (role) {
-    case "SUPER_ADMIN": return "text-red-400 border-red-400/30 bg-red-400/10"
-    case "ADMIN":       return "text-orange-400 border-orange-400/30 bg-orange-400/10"
-    case "MANAGER":     return "text-neon-cyan border-neon-cyan/30 bg-neon-cyan/10"
     case "LEADER":      return "text-neon-blue border-neon-blue/30 bg-neon-blue/10"
     case "TECHNICIAN":  return "text-green-400 border-green-400/30 bg-green-400/10"
     default:            return "text-muted-foreground border-border/30 bg-muted/10"
@@ -70,9 +72,6 @@ const getRoleColor = (role: Role) => {
 
 const getRoleIcon = (role: Role) => {
   switch (role) {
-    case "SUPER_ADMIN":
-    case "ADMIN":
-    case "MANAGER":    return <Shield className="w-3 h-3" />
     case "LEADER":     return <Star className="w-3 h-3" />
     case "TECHNICIAN": return <Wrench className="w-3 h-3" />
     default:           return <User className="w-3 h-3" />
@@ -117,9 +116,76 @@ export default function ManagerUsersPage() {
     speciality: "ELECTRICITY", zone: "NORTH", leaderId: "", technicianIds: []
   })
 
+  // Teams tab filters and leader names
+  const [teamFilterSpeciality, setTeamFilterSpeciality] = useState<ProfessionalSpeciality | "">("")
+  const [teamFilterZone, setTeamFilterZone] = useState<Zone | "">("")
+  const [teamFilterLeaderEmail, setTeamFilterLeaderEmail] = useState("")
+  const [leaderEmailSearching, setLeaderEmailSearching] = useState(false)
+  const [leaderEmailMatchedIds, setLeaderEmailMatchedIds] = useState<Set<string> | null>(null)
+  const [leaderNames, setLeaderNames] = useState<Record<string, string>>({})
+
+  // Refs to team cards for smooth scrolling when navigating from Users tab
+  const teamRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
   useEffect(() => {
     if (activeTab === "teams") fetchTeams()
   }, [activeTab])
+
+  // Debounced leader email contains search for Teams tab (300ms)
+  useEffect(() => {
+    const q = teamFilterLeaderEmail.trim()
+    if (!q) {
+      setLeaderEmailMatchedIds(null)
+      setLeaderEmailSearching(false)
+      return
+    }
+    setLeaderEmailSearching(true)
+    const handle = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_USERS}/email/contains/${encodeURIComponent(q)}`)
+        if (!res.ok) throw new Error("Search failed")
+        const list: UserDTO[] = await res.json()
+        // Managers can only target leaders for leader email filter
+        const leaderList = list.filter(u => u.role === "LEADER")
+        const ids = new Set(leaderList.map(u => u.id))
+        setLeaderEmailMatchedIds(ids)
+      } catch {
+        setLeaderEmailMatchedIds(new Set())
+      } finally {
+        setLeaderEmailSearching(false)
+      }
+    }, 300)
+    return () => clearTimeout(handle)
+  }, [teamFilterLeaderEmail])
+
+
+  // Debounced email contains search (300ms)
+  const [emailSearching, setEmailSearching] = useState(false)
+  useEffect(() => {
+    const q = filterEmail.trim()
+    if (!q) return
+    setHasSearched(true)
+    setEmailSearching(true)
+    setUserError(null)
+    const handle = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_USERS}/email/contains/${encodeURIComponent(q)}`)
+        if (!res.ok) throw new Error("Search failed")
+        let list: UserDTO[] = await res.json()
+        // Manager can only fetch leaders and technicians
+        list = list.filter(u => MANAGEABLE_ROLES.includes(u.role))
+        if (filterRole) list = list.filter(u => u.role === filterRole)
+        if (filterSpeciality) list = list.filter(u => (u.speciality as any) === filterSpeciality)
+        setUsers(list)
+      } catch (e: any) {
+        setUserError(e.message)
+        setUsers([])
+      } finally {
+        setEmailSearching(false)
+      }
+    }, 300)
+    return () => clearTimeout(handle)
+  }, [filterEmail, filterRole, filterSpeciality])
 
   const fetchTeams = async () => {
     setLoadingTeams(true)
@@ -127,7 +193,29 @@ export default function ManagerUsersPage() {
     try {
       const res = await fetch(API_TEAMS)
       if (!res.ok) throw new Error("Failed to fetch teams")
-      setTeams(await res.json())
+      const list: Team[] = await res.json()
+      setTeams(list)
+      // Batch fetch leader usernames
+      const uniqueLeaderIds = Array.from(new Set(list.map(t => t.leaderId).filter(Boolean))) as string[]
+      if (uniqueLeaderIds.length > 0) {
+        const results = await Promise.all(uniqueLeaderIds.map(async (id) => {
+          try {
+            const r = await fetch(`${API_USERS}/${id}`)
+            if (!r.ok) throw new Error("not found")
+            const u: UserDTO = await r.json()
+            return [id, u.username] as const
+          } catch {
+            return [id, undefined] as const
+          }
+        }))
+        const map: Record<string, string> = {}
+        for (const [id, name] of results) {
+          if (name) map[id] = name
+        }
+        setLeaderNames(map)
+      } else {
+        setLeaderNames({})
+      }
     } catch (e: any) {
       setTeamError(e.message)
     } finally {
@@ -152,28 +240,59 @@ export default function ManagerUsersPage() {
     }
   }
 
+  // Navigate to a specific team from Users tab: switch tab, ensure data, expand, and scroll
+  const navigateToTeam = async (teamId: string) => {
+    if (!teamId) return
+    // Switch to Teams tab (useEffect will also attempt fetch)
+    setActiveTab("teams")
+
+    // Ensure teams are loaded before we try to expand
+    if (!teams || teams.length === 0) {
+      try {
+        await fetchTeams()
+      } catch {
+        // existing error UI will handle this
+      }
+    }
+
+    // Try to find the team and expand it
+    const team = teams.find(t => t.id === teamId)
+    if (team) {
+      await handleExpandTeam(team)
+    } else {
+      // Fallback so once it appears, it's marked expanded
+      setExpandedTeam(teamId)
+    }
+
+    // Smooth scroll to the team card after the DOM updates
+    setTimeout(() => {
+      teamRefs.current[teamId]?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }, 50)
+  }
+
   // SEARCH — fetch by most selective filter, client-side intersect
   const handleSearch = async () => {
-    if (!filterRole && !filterSpeciality && !filterEmail.trim()) return
+    // Only handle role/speciality searches here; email search is live & debounced above
+    if (!filterRole && !filterSpeciality) return
+    if (filterEmail.trim()) return
     setLoadingUsers(true)
     setUserError(null)
     setHasSearched(true)
     try {
       let fetched: UserDTO[] = []
-      if (filterEmail.trim()) {
-        const res = await fetch(`${API_USERS}/email/${encodeURIComponent(filterEmail.trim())}`)
-        if (!res.ok) throw new Error("User not found")
-        const data = await res.json()
-        fetched = data ? [data] : []
-      } else if (filterSpeciality) {
+      if (filterSpeciality) {
         const res = await fetch(`${API_USERS}/speciality/${filterSpeciality}`)
         if (!res.ok) throw new Error("Search failed")
         fetched = await res.json()
+        // Only allow leaders and technicians for manager
+        fetched = fetched.filter(u => MANAGEABLE_ROLES.includes(u.role))
         if (filterRole) fetched = fetched.filter(u => u.role === filterRole)
       } else if (filterRole) {
         const res = await fetch(`${API_USERS}/role/${filterRole}`)
         if (!res.ok) throw new Error("Search failed")
         fetched = await res.json()
+        // Only allow leaders and technicians for manager
+        fetched = fetched.filter(u => MANAGEABLE_ROLES.includes(u.role))
       }
       setUsers(fetched)
     } catch (e: any) {
@@ -280,6 +399,25 @@ export default function ManagerUsersPage() {
     } catch (e: any) { alert("Error: " + e.message) }
   }
 
+  // Derived filtered teams for Teams tab
+  const filteredTeams = teams.filter(t => {
+    if (teamFilterSpeciality && t.speciality !== teamFilterSpeciality) return false
+    if (teamFilterZone && t.zone !== teamFilterZone) return false
+    if (teamFilterLeaderEmail.trim()) {
+      // if search ran but produced no matches, leaderEmailMatchedIds could be empty Set
+      if (!leaderEmailMatchedIds) return true // still typing or empty input handled earlier
+      return leaderEmailMatchedIds.has(t.leaderId)
+    }
+    return true
+  })
+
+  const clearTeamFilters = () => {
+    setTeamFilterSpeciality("")
+    setTeamFilterZone("")
+    setTeamFilterLeaderEmail("")
+    setLeaderEmailMatchedIds(null)
+  }
+
   return (
       <div className="min-h-screen bg-background text-foreground">
         <div className="fixed inset-0 -z-10">
@@ -337,32 +475,51 @@ export default function ManagerUsersPage() {
                     <span className="text-xs text-muted-foreground ml-1">— combine filters for precise results</span>
                   </div>
 
+                  {/* Top email search bar (contains, debounced) */}
+                  <div className="mb-4">
+                    <label className="block text-xs text-muted-foreground mb-2">Email</label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <input
+                        type="text"
+                        value={filterEmail}
+                        onChange={e => setFilterEmail(e.target.value)}
+                        placeholder="Search by email..."
+                        className="w-full pl-9 pr-9 py-2 bg-background border border-neon-cyan/20 focus:border-neon-cyan/50 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
+                      />
+                      {emailSearching && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neon-cyan animate-spin" />
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-1">Type to search by email. Results update live.</p>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
                       <label className="block text-xs text-muted-foreground mb-2">Role</label>
                       <select value={filterRole} onChange={e => setFilterRole(e.target.value as Role | "")}
                               className="w-full px-4 py-2 bg-background border border-neon-cyan/20 focus:border-neon-cyan/50 rounded-lg text-foreground focus:outline-none text-sm">
                         <option value="">Any role</option>
-                        {ROLES.map(r => <option key={r} value={r}>{fmt(r)}</option>)}
+                        {MANAGEABLE_ROLES.map(r => <option key={r} value={r}>{fmt(r)}</option>)}
                       </select>
                     </div>
                     <div>
                       <label className="block text-xs text-muted-foreground mb-2">Speciality</label>
-                      <select value={filterSpeciality} onChange={e => setFilterSpeciality(e.target.value as ProfessionalSpeciality | "")}
-                              className="w-full px-4 py-2 bg-background border border-neon-cyan/20 focus:border-neon-cyan/50 rounded-lg text-foreground focus:outline-none text-sm">
+                      <select
+                        value={filterSpeciality}
+                        onChange={e => setFilterSpeciality(e.target.value as ProfessionalSpeciality | "")}
+                        disabled={filterRole === "CITIZEN"}
+                        className={`w-full px-4 py-2 bg-background border border-neon-cyan/20 focus:border-neon-cyan/50 rounded-lg text-foreground focus:outline-none text-sm ${filterRole === "CITIZEN" ? "opacity-50 cursor-not-allowed" : ""}`}
+                      >
                         <option value="">Any speciality</option>
                         {SPECIALITIES.map(s => <option key={s} value={s}>{fmt(s)}</option>)}
                       </select>
+                      {filterRole === "CITIZEN" && (
+                        <p className="text-[11px] text-muted-foreground mt-1">Citizens have no speciality</p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-xs text-muted-foreground mb-2">Email (exact)</label>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <input type="email" value={filterEmail} onChange={e => setFilterEmail(e.target.value)}
-                               onKeyDown={e => e.key === "Enter" && handleSearch()}
-                               placeholder="user@intervenia.com"
-                               className="w-full pl-9 pr-4 py-2 bg-background border border-neon-cyan/20 focus:border-neon-cyan/50 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none text-sm" />
-                      </div>
+                      {/* reserved column for future filters */}
                     </div>
                   </div>
 
@@ -389,7 +546,7 @@ export default function ManagerUsersPage() {
 
                   <div className="flex gap-3">
                     <Button onClick={handleSearch}
-                            disabled={loadingUsers || (!filterRole && !filterSpeciality && !filterEmail.trim())}
+                            disabled={loadingUsers || (!!filterEmail.trim()) || (!filterRole && !filterSpeciality)}
                             className="bg-gradient-to-r from-neon-cyan/80 to-neon-blue/80 text-background hover:from-neon-cyan hover:to-neon-blue border border-neon-cyan/40">
                       {loadingUsers ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}Search
                     </Button>
@@ -423,13 +580,16 @@ export default function ManagerUsersPage() {
                           <label className="block text-sm text-muted-foreground mb-2">Role</label>
                           <select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value as Role })}
                                   className="w-full px-4 py-2 bg-background border border-neon-cyan/30 rounded-lg text-foreground focus:outline-none">
-                            {ROLES.map(r => <option key={r} value={r}>{fmt(r)}</option>)}
+                            {MANAGEABLE_ROLES.map(r => <option key={r} value={r}>{fmt(r)}</option>)}
                           </select>
                         </div>
                         <div>
                           <label className="block text-sm text-muted-foreground mb-2">Speciality</label>
-                          <select value={newUser.speciality} onChange={e => setNewUser({ ...newUser, speciality: e.target.value as ProfessionalSpeciality })}
-                                  className="w-full px-4 py-2 bg-background border border-neon-cyan/30 rounded-lg text-foreground focus:outline-none">
+                          <select
+                            value={newUser.speciality as any}
+                            onChange={e => setNewUser({ ...newUser, speciality: e.target.value as ProfessionalSpeciality })}
+                          >
+                            <option value="">Select speciality</option>
                             {SPECIALITIES.map(s => <option key={s} value={s}>{fmt(s)}</option>)}
                           </select>
                         </div>
@@ -521,13 +681,16 @@ export default function ManagerUsersPage() {
                                             <label className="block text-xs text-muted-foreground mb-1">Role</label>
                                             <select value={editUserData.role} onChange={e => setEditUserData({ ...editUserData, role: e.target.value as Role })}
                                                     className="w-full px-3 py-1.5 bg-background border border-neon-cyan/30 rounded-lg text-sm text-foreground focus:outline-none">
-                                              {ROLES.map(r => <option key={r} value={r}>{fmt(r)}</option>)}
+                                              {MANAGEABLE_ROLES.map(r => <option key={r} value={r}>{fmt(r)}</option>)}
                                             </select>
                                           </div>
                                           <div>
                                             <label className="block text-xs text-muted-foreground mb-1">Speciality</label>
-                                            <select value={editUserData.speciality} onChange={e => setEditUserData({ ...editUserData, speciality: e.target.value as ProfessionalSpeciality })}
-                                                    className="w-full px-3 py-1.5 bg-background border border-neon-cyan/30 rounded-lg text-sm text-foreground focus:outline-none">
+                                            <select
+                                              value={editUserData.speciality as any}
+                                              onChange={e => setEditUserData({ ...editUserData, speciality: e.target.value as ProfessionalSpeciality })}
+                                                 >
+                                              <option value="">Select speciality</option>
                                               {SPECIALITIES.map(s => <option key={s} value={s}>{fmt(s)}</option>)}
                                             </select>
                                           </div>
@@ -571,7 +734,19 @@ export default function ManagerUsersPage() {
                                             <div><p className="text-muted-foreground mb-1">Shift</p><p className="font-semibold">{user.shiftStart}:00 – {user.shiftEnd}:00</p></div>
                                             <div>
                                               <p className="text-muted-foreground mb-1">Team</p>
-                                              <p className="font-semibold text-neon-blue text-xs">{user.team ? `${fmt(user.team.speciality)} · ${user.team.zone}` : "No team"}</p>
+                                              {user.teamId ? (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => navigateToTeam(user.teamId!)}
+                                                  className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-mono rounded-full border border-cyan-400/30 text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 hover:text-cyan-200 transition-colors"
+                                                  title={`Go to team ${user.teamId}`}
+                                                >
+                                                  <ChevronRight className="w-3 h-3" />
+                                                  {shortId(user.teamId)}
+                                                </button>
+                                              ) : (
+                                                <span className="text-xs text-muted-foreground">No team</span>
+                                              )}
                                             </div>
                                           </div>
                                         </>
@@ -622,13 +797,81 @@ export default function ManagerUsersPage() {
               <div>
                 <div className="flex items-center justify-between mb-6">
                   <p className="text-sm text-muted-foreground">
-                    {teams.length > 0 ? <><span className="text-neon-cyan font-semibold">{teams.length}</span> teams</> : "No teams yet"}
+                    {teams.length > 0 ? <><span className="text-neon-cyan font-semibold">{filteredTeams.length}</span> of <span className="font-semibold">{teams.length}</span> teams</> : "No teams yet"}
                   </p>
                   <Button onClick={() => setShowAddTeam(!showAddTeam)}
                           className="bg-gradient-to-r from-neon-cyan/80 to-neon-blue/80 text-background hover:from-neon-cyan hover:to-neon-blue border border-neon-cyan/40">
                     <Plus className="w-4 h-4 mr-2" />Create Team
                   </Button>
                 </div>
+
+                {/* Teams filter panel */}
+                <Card className="p-6 mb-6 bg-gradient-to-br from-neon-cyan/5 to-neon-blue/5 border-neon-cyan/20">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Filter className="w-5 h-5 text-neon-cyan" />
+                    <h2 className="text-lg font-semibold">Filter Teams</h2>
+                    <span className="text-xs text-muted-foreground ml-1">— refine by speciality, zone, or leader email</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                    <div>
+                      <label className="block text-xs text-muted-foreground mb-2">Speciality</label>
+                      <select value={teamFilterSpeciality} onChange={e => setTeamFilterSpeciality(e.target.value as ProfessionalSpeciality | "")} className="w-full px-4 py-2 bg-background border border-neon-cyan/20 focus:border-neon-cyan/50 rounded-lg text-foreground focus:outline-none text-sm">
+                        <option value="">Any speciality</option>
+                        {SPECIALITIES.map(s => <option key={s} value={s}>{fmt(s)}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-muted-foreground mb-2">Zone</label>
+                      <select value={teamFilterZone} onChange={e => setTeamFilterZone(e.target.value as Zone | "")} className="w-full px-4 py-2 bg-background border border-neon-cyan/20 focus:border-neon-cyan/50 rounded-lg text-foreground focus:outline-none text-sm">
+                        <option value="">Any zone</option>
+                        {ZONES.map(z => <option key={z} value={z}>{z}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-muted-foreground mb-2">Leader email</label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <input
+                          type="text"
+                          value={teamFilterLeaderEmail}
+                          onChange={e => setTeamFilterLeaderEmail(e.target.value)}
+                          placeholder="Search leader by email..."
+                          className="w-full pl-9 pr-9 py-2 bg-background border border-neon-cyan/20 focus:border-neon-cyan/50 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
+                        />
+                        {leaderEmailSearching && (
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neon-cyan animate-spin" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Active filter chips */}
+                  {(teamFilterSpeciality || teamFilterZone || teamFilterLeaderEmail) && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {teamFilterSpeciality && (
+                        <span className="text-xs px-3 py-1 rounded-full bg-neon-blue/10 border border-neon-blue/30 text-neon-blue flex items-center gap-1">
+                          Spec: {fmt(teamFilterSpeciality as string)}<button onClick={() => setTeamFilterSpeciality("")} className="ml-1 hover:text-white font-bold">×</button>
+                        </span>
+                      )}
+                      {teamFilterZone && (
+                        <span className="text-xs px-3 py-1 rounded-full bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan flex items-center gap-1">
+                          Zone: {teamFilterZone}<button onClick={() => setTeamFilterZone("")} className="ml-1 hover:text-white font-bold">×</button>
+                        </span>
+                      )}
+                      {teamFilterLeaderEmail && (
+                        <span className="text-xs px-3 py-1 rounded-full bg-green-400/10 border border-green-400/30 text-green-400 flex items-center gap-1">
+                          Leader: {teamFilterLeaderEmail}<button onClick={() => setTeamFilterLeaderEmail("")} className="ml-1 hover:text-white font-bold">×</button>
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <Button variant="outline" onClick={clearTeamFilters} className="border-border/30 text-foreground">Clear</Button>
+                    <p className="text-xs text-muted-foreground ml-auto">Showing <span className="text-neon-cyan font-semibold">{filteredTeams.length}</span> of <span className="font-semibold">{teams.length}</span> teams</p>
+                  </div>
+                </Card>
 
                 {showAddTeam && (
                     <Card className="p-6 mb-6 bg-gradient-to-br from-neon-cyan/5 to-neon-blue/5 border-neon-cyan/30">
@@ -689,9 +932,9 @@ export default function ManagerUsersPage() {
                     </div>
                 ) : (
                     <div className="space-y-4">
-                      {teams.map(team => (
+                      {filteredTeams.map(team => (
                           <Card key={team.id} className="bg-gradient-to-br from-card to-card/50 border-border/20 hover:border-neon-cyan/30 transition-all overflow-hidden">
-                            <div className="p-6">
+                            <div ref={el => { teamRefs.current[team.id] = el }} className="p-6">
                               <div className="flex items-start justify-between gap-4">
                                 <div className="flex items-center gap-4">
                                   <div className="w-12 h-12 rounded-xl bg-neon-blue/10 border border-neon-blue/20 flex items-center justify-center shrink-0">
@@ -706,7 +949,7 @@ export default function ManagerUsersPage() {
                                     </div>
                                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
-                                <Star className="w-3 h-3 text-yellow-400" />Leader ID: <span className="font-mono text-xs text-foreground ml-1">{team.leaderId ? team.leaderId.slice(0, 8) + "..." : "—"}</span>
+                                <Star className="w-3 h-3 text-yellow-400" />Leader: <span className="text-foreground ml-1">{leaderNames[team.leaderId] ?? "Unknown"}</span>
                               </span>
                                       <span className="flex items-center gap-1">
                                 <Wrench className="w-3 h-3" />{team.technicianIds?.length ?? 0} technician{(team.technicianIds?.length ?? 0) !== 1 ? "s" : ""}

@@ -10,13 +10,18 @@ import tn.intervent360.intervent360.domain.model.incident.Incident;
 import tn.intervent360.intervent360.domain.model.incident.IncidentStaffingRule;
 import tn.intervent360.intervent360.domain.model.planning.PlanningTask;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
+import tn.intervent360.intervent360.domain.model.team.Team;
+import tn.intervent360.intervent360.domain.model.user.Role;
 import tn.intervent360.intervent360.domain.registry.EquipmentRegistry;
 import tn.intervent360.intervent360.domain.registry.IncidentStaffingRegistry;
+import tn.intervent360.intervent360.domain.repository.TeamRepository;
 import tn.intervent360.intervent360.domain.repository.UserRepository;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
@@ -25,6 +30,7 @@ public class TaskExpander {
 
     private final IncidentStaffingRegistry staffingRegistry;
     private final UserRepository userRepository;
+    private final TeamRepository teamRepository;
     private final EquipmentRegistry equipmentRegistry;
 
     /**
@@ -124,10 +130,20 @@ public class TaskExpander {
             Zone zone,
             List<ProfessionalSpeciality> specialities
     ) {
-        return  (int) userRepository.countByIsAvailableTrueAndSpecialityInAndTeam_Zone(
-                specialities,
-                zone
-
-        );
+        // Collect all team IDs that match any of the required specialities in the given zone
+        Set<String> teamIds = new HashSet<>();
+        for (ProfessionalSpeciality spec : specialities) {
+            List<Team> teams = teamRepository.findBySpecialityAndZone(spec, zone);
+            for (Team t : teams) {
+                teamIds.add(t.getId());
+            }
+        }
+        if (teamIds.isEmpty()) {
+            return 0;
+        }
+        // Query users by these team IDs, availability and role TECHNICIAN
+        return userRepository
+                .findByTeamIdInAndIsAvailableAndRole(new ArrayList<>(teamIds), true, Role.TECHNICIAN)
+                .size();
     }
 }

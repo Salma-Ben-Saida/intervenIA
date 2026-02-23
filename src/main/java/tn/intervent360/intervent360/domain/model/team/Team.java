@@ -3,21 +3,25 @@ package tn.intervent360.intervent360.domain.model.team;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.Document;
 import tn.intervent360.intervent360.domain.model.Zone;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
 @Document(collection = "teams")
+@CompoundIndexes({
+        @CompoundIndex(name = "team_spec_zone_idx", def = "{speciality:1, zone:1}")
+})
 public class Team {
 
     @Setter
     @Getter
     @Id
-    private String id=UUID.randomUUID().toString();;
+    private String id = UUID.randomUUID().toString();
 
     @Setter
     @Getter
@@ -39,14 +43,12 @@ public class Team {
     // Store technician IDs rather than embedding full objects
     @Getter
     @Setter
-    private  List<String> technicianIds = new ArrayList<>();
-
+    private List<String> technicianIds = new ArrayList<>();
 
     // ============================
     //         CONSTRUCTORS
     // ============================
     public Team() {
-
     }
 
     public Team(String leaderId,
@@ -57,7 +59,6 @@ public class Team {
         this.zone = zone;
         this.technicianIds.addAll(technicianIds);
     }
-
 
     // ============================
     //         BUSINESS METHODS
@@ -72,7 +73,5 @@ public class Team {
     public void removeTechnician(String technicianId) {
         technicianIds.remove(technicianId);
     }
-
-
 }
 
