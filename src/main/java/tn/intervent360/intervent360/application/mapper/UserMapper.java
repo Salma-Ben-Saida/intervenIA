@@ -13,11 +13,14 @@ public class UserMapper {
         userDTO.setRole(user.getRole());
         userDTO.setIsAvailable(user.getIsAvailable());
         userDTO.setSpeciality(user.getSpeciality());
-        userDTO.setTeam(user.getTeam());
+        userDTO.setTeamId(user.getTeamId());
         userDTO.setShiftStart(user.getShiftStart());
         userDTO.setShiftEnd(user.getShiftEnd());
         userDTO.setMaxDailyHours(user.getMaxDailyHours());
         userDTO.setOnCall(user.getOnCall());
+        // Manager scope
+        userDTO.setManagedZone(user.getManagedZone());
+        userDTO.setManagedSpeciality(user.getManagedSpeciality());
         return userDTO;
     }
 
@@ -35,6 +38,9 @@ public class UserMapper {
         user.setIsAvailable(userDTO.getIsAvailable());
         user.setTeamId(userDTO.getTeamId());
         user.setOnCall(userDTO.getOnCall());
+        // Manager scope
+        user.setManagedZone(userDTO.getManagedZone());
+        user.setManagedSpeciality(userDTO.getManagedSpeciality());
 
         return user;
     }

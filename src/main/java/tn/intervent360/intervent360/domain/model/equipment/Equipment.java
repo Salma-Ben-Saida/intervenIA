@@ -3,6 +3,7 @@ package tn.intervent360.intervent360.domain.model.equipment;
 import lombok.Setter;
 import lombok.Getter;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import tn.intervent360.intervent360.domain.model.Zone;
@@ -11,6 +12,7 @@ import tn.intervent360.intervent360.domain.registry.EquipmentRegistry;
 import java.util.UUID;
 
 @Document(collection = "equipment")
+@CompoundIndex(def = "{'equipmentName': 1, 'zone': 1, 'status': 1}")
 public class Equipment {
 
     @Id

@@ -3,6 +3,7 @@ package tn.intervent360.intervent360.domain.model.incident;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import tn.intervent360.intervent360.domain.model.Zone;
 import tn.intervent360.intervent360.domain.registry.IncidentRegistry;
@@ -44,13 +45,13 @@ public class Incident {
     @Getter @Setter
     private IncidentName aiPredictedName;
 
-    @Getter @Setter
+    @Getter @Setter @Indexed
     private UrgencyLevel urgencyLevel;
 
     @Getter @Setter
     private IncidentType incidentType;
 
-    @Getter @Setter
+    @Getter @Setter @Indexed
     private IncidentStatus incidentStatus = IncidentStatus.PENDING;
 
     @Getter @Setter
@@ -59,7 +60,7 @@ public class Incident {
     @Getter @Setter
     private Zone zone;
 
-    @Getter @Setter
+    @Getter @Setter @Indexed
     private List<ProfessionalSpeciality> speciality;
 
     @Getter @Setter

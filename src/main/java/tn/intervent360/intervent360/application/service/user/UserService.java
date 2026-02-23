@@ -4,7 +4,6 @@ package tn.intervent360.intervent360.application.service.user;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import tn.intervent360.intervent360.application.service.team.TeamEmbeddingService;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 import tn.intervent360.intervent360.domain.model.team.Team;
 import tn.intervent360.intervent360.domain.model.user.User;
@@ -18,6 +17,7 @@ import tn.intervent360.intervent360.application.mapper.UserMapper;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -26,7 +26,6 @@ public class UserService {
     private final UserRepository userRepository;
     private final TeamRepository teamRepository;
     private final PasswordEncoder passwordEncoder;
-    private final TeamEmbeddingService teamEmbeddingService;
 
     private final PlanningAssignmentRepository assignmentRepository;
 
@@ -43,6 +42,17 @@ public class UserService {
 
         User user = UserMapper.toUser(dto);
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
+
+        // Enforce manager scope rules
+        if (user.getRole() == Role.MANAGER) {
+            if (dto.getManagedZone() == null || dto.getManagedSpeciality() == null) {
+                throw new IllegalArgumentException("Manager must have a managed zone and speciality");
+            }
+            // mapper already set these from dto
+        } else {
+            user.setManagedZone(null);
+            user.setManagedSpeciality(null);
+        }
 
         if (user.getRole() == Role.TECHNICIAN) {
             user.setIsAvailable(true);
@@ -70,10 +80,7 @@ public class UserService {
                 team.setLeaderId(saved.getId());
             }
 
-            Team savedTeam = teamRepository.save(team);
-
-            // Refresh embedded team for all members including new user
-            teamEmbeddingService.refreshEmbeddedTeam(savedTeam);
+            teamRepository.save(team);
 
             if (saved.getRole() == Role.TECHNICIAN) {
                 saved.setIsAvailable(true);
@@ -115,6 +122,11 @@ public class UserService {
                 .toList();
     }
 
+    // Internal helper for controllers that need domain entity
+    public User getDomainUserById(String id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+    }
 
 
     public Optional<UserDTO> findByEmail(String email) {
@@ -173,6 +185,18 @@ public class UserService {
         user.setEmail(dto.getEmail());
         user.setRole(dto.getRole());
 
+        // Enforce manager scope rules on update
+        if (dto.getRole() == Role.MANAGER) {
+            if (dto.getManagedZone() == null || dto.getManagedSpeciality() == null) {
+                throw new IllegalArgumentException("Manager must have a managed zone and speciality");
+            }
+            user.setManagedZone(dto.getManagedZone());
+            user.setManagedSpeciality(dto.getManagedSpeciality());
+        } else {
+            user.setManagedZone(null);
+            user.setManagedSpeciality(null);
+        }
+
         // Update password only if provided
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
             user.setPassword(passwordEncoder.encode(dto.getPassword()));
@@ -194,8 +218,8 @@ public class UserService {
         // CASE 1 — If user is a technician: remove from team
         if (user.getRole() == Role.TECHNICIAN) {
 
-            if (user.getTeam() != null) {
-                String teamId = user.getTeam().getId();
+            if (user.getTeamId() != null) {
+                String teamId = user.getTeamId();
 
                 teamRepository.findById(teamId).ifPresent(team -> {
                     team.removeTechnician(id);
@@ -246,6 +270,13 @@ public class UserService {
                 );
 
         dto.setIsAvailable(!busy);
+    }
+
+    public List<UserDTO> findByEmailContaining(String substring) {
+        return userRepository.findByEmailContainingIgnoreCase(substring)
+                .stream()
+                .map(UserMapper::toUserDTO)
+                .collect(Collectors.toList());
     }
 
 
