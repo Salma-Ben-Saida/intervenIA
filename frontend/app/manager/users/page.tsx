@@ -1,898 +1,823 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { InterveniaLogo } from "@/components/intervenia-logo"
 import {
-  Users,
-  Menu,
-  Bell,
-  Search,
-  Plus,
-  Edit,
-  Trash2,
-  Shield,
-  Wrench,
-  UserCircle,
-  X,
-  Mail,
-  Phone,
-  MapPin,
-  MessageSquare,
-  AlertTriangle,
+  Menu, Bell, Users, ArrowLeft, Search, Plus, Edit, Trash2,
+  AlertCircle, Loader2, Shield, Wrench, User, Filter,
+  ChevronDown, ChevronUp, UserMinus, MapPin, Star
 } from "lucide-react"
 
-const PROFESSIONAL_SPECIALITIES = [
-  "PUBLIC_LIGHTING",
-  "ELECTRICITY",
-  "TRAFFIC_SIGNALS",
-  "GAZ",
-  "SANITATION",
-  "ROADS",
-  "ENVIRONMENT",
-  "FIRE_SAFETY",
-  "TELECOMMUNICATION_IOT",
-  "EMERGENCY",
-]
+const API_USERS = "http://localhost:8080/api/users"
+const API_TEAMS = "http://localhost:8080/api/teams"
 
-const TEAMS_BY_SPECIALITY: Record<string, string[]> = {
-  PUBLIC_LIGHTING: ["Team Alpha - Lighting North", "Team Beta - Lighting South"],
-  ELECTRICITY: ["Team Gamma - Electric West", "Team Delta - Electric East"],
-  TRAFFIC_SIGNALS: ["Team Epsilon - Traffic Central"],
-  GAZ: ["Team Zeta - Gas Response"],
-  SANITATION: ["Team Eta - Sanitation Main", "Team Theta - Sanitation Backup"],
-  ROADS: ["Team Iota - Roads North", "Team Kappa - Roads South"],
-  ENVIRONMENT: ["Team Lambda - Environment"],
-  FIRE_SAFETY: ["Team Mu - Fire Safety"],
-  TELECOMMUNICATION_IOT: ["Team Nu - Telecom/IoT"],
-  EMERGENCY: ["Team Xi - Emergency Response"],
+type Role = "CITIZEN" | "TECHNICIAN" | "LEADER" | "MANAGER" | "ADMIN" | "SUPER_ADMIN"
+type ProfessionalSpeciality =
+    | "PUBLIC_LIGHTING" | "ELECTRICITY" | "TRAFFIC_SIGNALS" | "GAZ"
+    | "SANITATION" | "ROADS" | "ENVIRONMENT" | "FIRE_SAFETY"
+    | "TELECOMMUNICATION_IOT" | "EMERGENCY"
+type Zone = "NORTH" | "SOUTH" | "CENTER"
+
+interface Team {
+  id: string
+  leaderId: string
+  speciality: ProfessionalSpeciality
+  zone: Zone
+  technicianIds: string[]
 }
 
-export default function UserManagementPage() {
-  const [selectedRole, setSelectedRole] = useState<"all" | "citizen" | "technician" | "team-leader">("all")
-  const [searchQuery, setSearchQuery] = useState("")
-  const [showAddUserForm, setShowAddUserForm] = useState(false)
-  const [editingUser, setEditingUser] = useState<number | null>(null)
-  const [newUserRole, setNewUserRole] = useState<"citizen" | "technician" | "team-leader">("citizen")
-  const [selectedSpeciality, setSelectedSpeciality] = useState("")
-  const [viewingCitizen, setViewingCitizen] = useState<any | null>(null)
+interface UserDTO {
+  id: string
+  email: string
+  username: string
+  password?: string
+  role: Role
+  isAvailable: boolean
+  speciality: ProfessionalSpeciality
+  team: Team | null
+  teamId: string | null
+  shiftStart: number
+  shiftEnd: number
+  maxDailyHours: number
+  onCall: boolean
+}
 
-  // Mock users data
-  const [users, setUsers] = useState([
-    // Citizens
-    {
-      id: 1,
-      name: "Alice Johnson",
-      email: "alice.j@email.com",
-      phone: "+1 555-0101",
-      role: "citizen",
-      address: "123 Main St, Apt 4B, North District",
-      photo: "AJ",
-      joinedDate: "2024-01-15",
-      reportsSubmitted: 12,
-      status: "active",
-      incidents: [
-        { id: 101, title: "Broken Street Light", date: "2024-12-10", status: "completed" },
-        { id: 102, title: "Pothole on Oak St", date: "2024-12-14", status: "in-progress" },
-      ],
-      feedback: {
-        uiRating: 4,
-        uxRating: 5,
-        comments: "Very easy to report incidents. The AI detection is amazing!",
-        suggestions: "Would love to see real-time updates on my reports.",
-      },
-    },
-    {
-      id: 2,
-      name: "Bob Smith",
-      email: "bob.smith@email.com",
-      phone: "+1 555-0102",
-      role: "citizen",
-      address: "456 Elm Avenue, South District",
-      photo: "BS",
-      joinedDate: "2024-02-20",
-      reportsSubmitted: 5,
-      status: "active",
-      incidents: [{ id: 103, title: "Water Leak", date: "2024-12-12", status: "scheduled" }],
-      feedback: {
-        uiRating: 5,
-        uxRating: 4,
-        comments: "Great app overall. Interface is very modern.",
-        suggestions: "",
-      },
-    },
-    // Technicians
-    {
-      id: 3,
-      name: "Alex Rivera",
-      email: "alex.rivera@intervenia.com",
-      phone: "+1 555-0201",
-      role: "technician",
-      specialty: "ELECTRICITY",
-      team: "Team Gamma - Electric West",
-      joinedDate: "2023-06-10",
-      tasksCompleted: 145,
-      status: "active",
-    },
-    {
-      id: 4,
-      name: "Sam Chen",
-      email: "sam.chen@intervenia.com",
-      phone: "+1 555-0202",
-      role: "technician",
-      specialty: "SANITATION",
-      team: "Team Eta - Sanitation Main",
-      joinedDate: "2023-07-15",
-      tasksCompleted: 132,
-      status: "active",
-    },
-    {
-      id: 5,
-      name: "Chris Martinez",
-      email: "chris.m@intervenia.com",
-      phone: "+1 555-0203",
-      role: "technician",
-      specialty: "ROADS",
-      team: "Team Iota - Roads North",
-      joinedDate: "2023-08-20",
-      tasksCompleted: 98,
-      status: "active",
-    },
-    // Team Leaders
-    {
-      id: 6,
-      name: "Sarah Johnson",
-      email: "sarah.j@intervenia.com",
-      phone: "+1 555-0301",
-      role: "team-leader",
-      specialty: "ELECTRICITY",
-      team: "Team Gamma - Electric West",
-      zone: "West District",
-      joinedDate: "2023-01-10",
-      teamSize: 5,
-      status: "active",
-    },
-    {
-      id: 7,
-      name: "Michael Torres",
-      email: "michael.t@intervenia.com",
-      phone: "+1 555-0302",
-      role: "team-leader",
-      specialty: "ROADS",
-      team: "",
-      zone: "",
-      joinedDate: "2023-02-15",
-      teamSize: 6,
-      status: "active",
-    },
-  ])
+const ROLES: Role[] = ["CITIZEN", "TECHNICIAN", "LEADER", "MANAGER", "ADMIN", "SUPER_ADMIN"]
+const SPECIALITIES: ProfessionalSpeciality[] = [
+  "PUBLIC_LIGHTING", "ELECTRICITY", "TRAFFIC_SIGNALS", "GAZ",
+  "SANITATION", "ROADS", "ENVIRONMENT", "FIRE_SAFETY",
+  "TELECOMMUNICATION_IOT", "EMERGENCY"
+]
+const ZONES: Zone[] = ["NORTH", "SOUTH", "CENTER"]
 
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case "citizen":
-        return <UserCircle className="w-4 h-4" />
-      case "technician":
-        return <Wrench className="w-4 h-4" />
-      case "team-leader":
-        return <Shield className="w-4 h-4" />
-      default:
-        return <Users className="w-4 h-4" />
-    }
+const fmt = (s?: string) => s?.replace(/_/g, " ") ?? "—"
+const initials = (name?: string) =>
+    name?.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) ?? "?"
+
+const getRoleColor = (role: Role) => {
+  switch (role) {
+    case "SUPER_ADMIN": return "text-red-400 border-red-400/30 bg-red-400/10"
+    case "ADMIN":       return "text-orange-400 border-orange-400/30 bg-orange-400/10"
+    case "MANAGER":     return "text-neon-cyan border-neon-cyan/30 bg-neon-cyan/10"
+    case "LEADER":      return "text-neon-blue border-neon-blue/30 bg-neon-blue/10"
+    case "TECHNICIAN":  return "text-green-400 border-green-400/30 bg-green-400/10"
+    default:            return "text-muted-foreground border-border/30 bg-muted/10"
   }
+}
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "citizen":
-        return "text-blue-400 border-blue-400/30 bg-blue-400/10"
-      case "technician":
-        return "text-neon-cyan border-neon-cyan/30 bg-neon-cyan/10"
-      case "team-leader":
-        return "text-neon-purple border-neon-purple/30 bg-neon-purple/10"
-      default:
-        return "text-muted-foreground border-border/30 bg-muted/10"
-    }
+const getRoleIcon = (role: Role) => {
+  switch (role) {
+    case "SUPER_ADMIN":
+    case "ADMIN":
+    case "MANAGER":    return <Shield className="w-3 h-3" />
+    case "LEADER":     return <Star className="w-3 h-3" />
+    case "TECHNICIAN": return <Wrench className="w-3 h-3" />
+    default:           return <User className="w-3 h-3" />
   }
+}
 
-  const filteredUsers = users.filter((user) => {
-    const matchesRole = selectedRole === "all" || user.role === selectedRole
-    const matchesSearch =
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesRole && matchesSearch
+export default function ManagerUsersPage() {
+  const [activeTab, setActiveTab] = useState<"users" | "teams">("users")
+
+  // USERS STATE
+  const [users, setUsers] = useState<UserDTO[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false)
+  const [userError, setUserError] = useState<string | null>(null)
+  const [filterRole, setFilterRole] = useState<Role | "">("")
+  const [filterSpeciality, setFilterSpeciality] = useState<ProfessionalSpeciality | "">("")
+  const [filterEmail, setFilterEmail] = useState("")
+  const [savingUser, setSavingUser] = useState(false)
+  const [showAddUser, setShowAddUser] = useState(false)
+  const [editingUserId, setEditingUserId] = useState<string | null>(null)
+  const [editUserData, setEditUserData] = useState<Partial<UserDTO>>({})
+  const [newUser, setNewUser] = useState<Partial<UserDTO>>({
+    email: "", username: "", password: "",
+    role: "TECHNICIAN", speciality: "ELECTRICITY",
+    shiftStart: 8, shiftEnd: 16, maxDailyHours: 8,
+    onCall: false, isAvailable: true,
   })
 
-  const handleDeleteUser = (userId: number) => {
-    if (confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
-      setUsers(users.filter((u) => u.id !== userId))
-      alert("User deleted successfully")
+  // TEAMS STATE
+  const [teams, setTeams] = useState<Team[]>([])
+  const [teamMembers, setTeamMembers] = useState<Record<string, UserDTO[]>>({})
+  const [loadingTeams, setLoadingTeams] = useState(false)
+  const [teamError, setTeamError] = useState<string | null>(null)
+  const [expandedTeam, setExpandedTeam] = useState<string | null>(null)
+  const [loadingMembers, setLoadingMembers] = useState<string | null>(null)
+  const [savingTeam, setSavingTeam] = useState(false)
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null)
+  const [editTeamZone, setEditTeamZone] = useState<Zone>("NORTH")
+  const [showAddTeam, setShowAddTeam] = useState(false)
+  const [newTeamTechInput, setNewTeamTechInput] = useState("")
+  const [newTeam, setNewTeam] = useState<{ speciality: ProfessionalSpeciality; zone: Zone; leaderId: string; technicianIds: string[] }>({
+    speciality: "ELECTRICITY", zone: "NORTH", leaderId: "", technicianIds: []
+  })
+
+  useEffect(() => {
+    if (activeTab === "teams") fetchTeams()
+  }, [activeTab])
+
+  const fetchTeams = async () => {
+    setLoadingTeams(true)
+    setTeamError(null)
+    try {
+      const res = await fetch(API_TEAMS)
+      if (!res.ok) throw new Error("Failed to fetch teams")
+      setTeams(await res.json())
+    } catch (e: any) {
+      setTeamError(e.message)
+    } finally {
+      setLoadingTeams(false)
     }
   }
 
-  const handleEditUser = (userId: number) => {
-    setEditingUser(userId)
+  const handleExpandTeam = async (team: Team) => {
+    if (expandedTeam === team.id) { setExpandedTeam(null); return }
+    setExpandedTeam(team.id)
+    if (teamMembers[team.id]) return
+    setLoadingMembers(team.id)
+    try {
+      const res = await fetch(`${API_USERS}/team/${team.id}`)
+      if (!res.ok) throw new Error("Failed to fetch members")
+      const members = await res.json()
+      setTeamMembers(prev => ({ ...prev, [team.id]: members }))
+    } catch {
+      setTeamMembers(prev => ({ ...prev, [team.id]: [] }))
+    } finally {
+      setLoadingMembers(null)
+    }
   }
 
-  const handleSaveUser = () => {
-    alert("User information updated successfully")
-    setEditingUser(null)
+  // SEARCH — fetch by most selective filter, client-side intersect
+  const handleSearch = async () => {
+    if (!filterRole && !filterSpeciality && !filterEmail.trim()) return
+    setLoadingUsers(true)
+    setUserError(null)
+    setHasSearched(true)
+    try {
+      let fetched: UserDTO[] = []
+      if (filterEmail.trim()) {
+        const res = await fetch(`${API_USERS}/email/${encodeURIComponent(filterEmail.trim())}`)
+        if (!res.ok) throw new Error("User not found")
+        const data = await res.json()
+        fetched = data ? [data] : []
+      } else if (filterSpeciality) {
+        const res = await fetch(`${API_USERS}/speciality/${filterSpeciality}`)
+        if (!res.ok) throw new Error("Search failed")
+        fetched = await res.json()
+        if (filterRole) fetched = fetched.filter(u => u.role === filterRole)
+      } else if (filterRole) {
+        const res = await fetch(`${API_USERS}/role/${filterRole}`)
+        if (!res.ok) throw new Error("Search failed")
+        fetched = await res.json()
+      }
+      setUsers(fetched)
+    } catch (e: any) {
+      setUserError(e.message)
+      setUsers([])
+    } finally {
+      setLoadingUsers(false)
+    }
   }
 
-  const handleAddUser = () => {
-    alert(`New ${newUserRole} account created successfully`)
-    setShowAddUserForm(false)
-    setSelectedSpeciality("")
+  const clearFilters = () => {
+    setFilterRole(""); setFilterSpeciality(""); setFilterEmail("")
+    setUsers([]); setHasSearched(false); setUserError(null)
   }
 
-  const stats = {
-    totalUsers: users.length,
-    citizens: users.filter((u) => u.role === "citizen").length,
-    technicians: users.filter((u) => u.role === "technician").length,
-    teamLeaders: users.filter((u) => u.role === "team-leader").length,
+  const handleAddUser = async () => {
+    setSavingUser(true)
+    try {
+      const res = await fetch(API_USERS, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newUser),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      const created: UserDTO = await res.json()
+      setUsers(prev => [created, ...prev])
+      setShowAddUser(false)
+      setNewUser({ email: "", username: "", password: "", role: "TECHNICIAN", speciality: "ELECTRICITY", shiftStart: 8, shiftEnd: 16, maxDailyHours: 8, onCall: false, isAvailable: true })
+    } catch (e: any) { alert("Error: " + e.message) }
+    finally { setSavingUser(false) }
   }
 
-  const availableTeams = selectedSpeciality ? TEAMS_BY_SPECIALITY[selectedSpeciality] || [] : []
+  const handleUpdateUser = async (id: string) => {
+    setSavingUser(true)
+    try {
+      const res = await fetch(`${API_USERS}/${id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editUserData),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      const updated: UserDTO = await res.json()
+      setUsers(prev => prev.map(u => u.id === id ? updated : u))
+      setEditingUserId(null)
+    } catch (e: any) { alert("Error: " + e.message) }
+    finally { setSavingUser(false) }
+  }
+
+  const handleDeleteUser = async (id: string) => {
+    if (!confirm("Delete this user?")) return
+    try {
+      const res = await fetch(`${API_USERS}/${id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error("Failed")
+      setUsers(prev => prev.filter(u => u.id !== id))
+    } catch (e: any) { alert("Error: " + e.message) }
+  }
+
+  const handleCreateTeam = async () => {
+    setSavingTeam(true)
+    try {
+      const res = await fetch(API_TEAMS, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newTeam),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      const created: Team = await res.json()
+      setTeams(prev => [created, ...prev])
+      setShowAddTeam(false)
+      setNewTeam({ speciality: "ELECTRICITY", zone: "NORTH", leaderId: "", technicianIds: [] })
+      setNewTeamTechInput("")
+    } catch (e: any) { alert("Error: " + e.message) }
+    finally { setSavingTeam(false) }
+  }
+
+  const handleDeleteTeam = async (id: string) => {
+    if (!confirm("Delete this team? Members will be unassigned.")) return
+    try {
+      const res = await fetch(`${API_TEAMS}/${id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error("Failed")
+      setTeams(prev => prev.filter(t => t.id !== id))
+      if (expandedTeam === id) setExpandedTeam(null)
+    } catch (e: any) { alert("Error: " + e.message) }
+  }
+
+  const handleUpdateTeamZone = async (teamId: string) => {
+    setSavingTeam(true)
+    try {
+      const res = await fetch(`${API_TEAMS}/${teamId}/zone?zone=${editTeamZone}`, { method: "PUT" })
+      if (!res.ok) throw new Error(await res.text())
+      const updated: Team = await res.json()
+      setTeams(prev => prev.map(t => t.id === teamId ? updated : t))
+      setEditingTeamId(null)
+    } catch (e: any) { alert("Error: " + e.message) }
+    finally { setSavingTeam(false) }
+  }
+
+  const handleRemoveTechnician = async (teamId: string, techId: string) => {
+    if (!confirm("Remove this technician from the team?")) return
+    try {
+      const res = await fetch(`${API_TEAMS}/${teamId}/remove-technician/${techId}`, { method: "DELETE" })
+      if (!res.ok) throw new Error("Failed")
+      setTeamMembers(prev => ({ ...prev, [teamId]: (prev[teamId] ?? []).filter(m => m.id !== techId) }))
+      setTeams(prev => prev.map(t =>
+          t.id === teamId ? { ...t, technicianIds: t.technicianIds.filter(id => id !== techId) } : t
+      ))
+    } catch (e: any) { alert("Error: " + e.message) }
+  }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Background Pattern */}
-      <div className="fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(34,211,238,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(34,211,238,0.03)_1px,transparent_1px)] bg-[size:50px_50px]"></div>
-        <div className="absolute top-20 right-40 w-96 h-96 bg-neon-cyan/5 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-20 left-20 w-80 h-80 bg-neon-blue/5 rounded-full blur-3xl"></div>
-      </div>
+      <div className="min-h-screen bg-background text-foreground">
+        <div className="fixed inset-0 -z-10">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(34,211,238,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(34,211,238,0.03)_1px,transparent_1px)] bg-[size:50px_50px]" />
+          <div className="absolute top-20 right-40 w-96 h-96 bg-neon-cyan/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-20 left-20 w-80 h-80 bg-neon-blue/5 rounded-full blur-3xl" />
+        </div>
 
-      {/* Header */}
-      <nav className="border-b border-border/20 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/manager" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div className="w-8 h-8 text-neon-cyan">
-              <InterveniaLogo />
+        <nav className="border-b border-border/20 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+            <Link href="/manager" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+              <div className="w-8 h-8 text-neon-cyan"><InterveniaLogo /></div>
+              <span className="font-bold text-lg tracking-tight">IntervenIA</span>
+              <span className="text-sm text-muted-foreground">| People Management</span>
+            </Link>
+            <div className="flex items-center gap-4">
+              <button className="p-2 hover:bg-muted/50 rounded-lg transition-colors"><Bell className="w-5 h-5" /></button>
+              <button className="p-2 hover:bg-muted/50 rounded-lg transition-colors"><Menu className="w-5 h-5" /></button>
             </div>
-            <span className="font-bold text-lg tracking-tight">IntervenIA</span>
-            <span className="text-sm text-muted-foreground">| User Management</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <button className="p-2 hover:bg-muted/50 rounded-lg transition-colors relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-400 rounded-full"></span>
-            </button>
-            <button className="p-2 hover:bg-muted/50 rounded-lg transition-colors">
-              <Menu className="w-5 h-5" />
-            </button>
           </div>
-        </div>
-      </nav>
+        </nav>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-12">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-4xl font-bold mb-3 tracking-tight">User Management</h1>
-            <p className="text-muted-foreground text-lg">Manage all users across the platform</p>
+        <main className="max-w-7xl mx-auto px-6 py-12">
+          <div className="mb-8">
+            <Link href="/manager">
+              <Button variant="outline" className="mb-4 border-neon-cyan/30 hover:border-neon-cyan/60 hover:bg-neon-cyan/5 bg-transparent">
+                <ArrowLeft className="w-4 h-4 mr-2" />Back to Dashboard
+              </Button>
+            </Link>
+            <h1 className="text-4xl font-bold mb-3 tracking-tight">People Management</h1>
+            <p className="text-muted-foreground text-lg">Manage users and teams across all zones</p>
           </div>
-          <Button
-            onClick={() => setShowAddUserForm(true)}
-            className="bg-gradient-to-r from-neon-cyan/80 to-neon-blue/80 text-background hover:from-neon-cyan hover:to-neon-blue border border-neon-cyan/40"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add New User
-          </Button>
-        </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="p-6 bg-gradient-to-br from-neon-cyan/5 to-neon-blue/5 border-neon-cyan/15">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-muted-foreground">Total Users</span>
-              <Users className="w-5 h-5 text-neon-cyan" />
-            </div>
-            <p className="text-3xl font-bold">{stats.totalUsers}</p>
-          </Card>
-
-          <Card className="p-6 bg-gradient-to-br from-blue-400/5 to-blue-500/5 border-blue-400/15">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-muted-foreground">Citizens</span>
-              <UserCircle className="w-5 h-5 text-blue-400" />
-            </div>
-            <p className="text-3xl font-bold">{stats.citizens}</p>
-          </Card>
-
-          <Card className="p-6 bg-gradient-to-br from-neon-cyan/5 to-neon-cyan/5 border-neon-cyan/15">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-muted-foreground">Technicians</span>
-              <Wrench className="w-5 h-5 text-neon-cyan" />
-            </div>
-            <p className="text-3xl font-bold">{stats.technicians}</p>
-          </Card>
-
-          <Card className="p-6 bg-gradient-to-br from-neon-purple/5 to-neon-purple/5 border-neon-purple/15">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-muted-foreground">Team Leaders</span>
-              <Shield className="w-5 h-5 text-neon-purple" />
-            </div>
-            <p className="text-3xl font-bold">{stats.teamLeaders}</p>
-          </Card>
-        </div>
-
-        {viewingCitizen && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-            <Card className="w-full max-w-3xl my-8 p-8 bg-background/95 backdrop-blur-xl border-blue-400/30">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold">Citizen Details</h3>
-                <button
-                  onClick={() => setViewingCitizen(null)}
-                  className="p-2 hover:bg-muted/50 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5" />
+          {/* Tabs */}
+          <div className="flex gap-1 p-1 bg-muted/20 border border-border/20 rounded-xl w-fit mb-8">
+            {(["users", "teams"] as const).map(tab => (
+                <button key={tab} onClick={() => setActiveTab(tab)}
+                        className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                            activeTab === tab
+                                ? "bg-neon-cyan/20 border border-neon-cyan/40 text-neon-cyan shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                        }`}>
+                  {tab === "users" ? <><User className="w-4 h-4" />Users</> : <><Users className="w-4 h-4" />Teams</>}
                 </button>
-              </div>
-
-              <div className="space-y-6">
-                {/* Profile Section */}
-                <div className="flex items-start gap-6 p-6 bg-muted/30 rounded-lg">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center text-2xl font-bold text-background">
-                    {viewingCitizen.photo}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-xl font-bold mb-2">{viewingCitizen.name}</h4>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Mail className="w-4 h-4" />
-                        <span>{viewingCitizen.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Phone className="w-4 h-4" />
-                        <span>{viewingCitizen.phone}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground col-span-2">
-                        <MapPin className="w-4 h-4" />
-                        <span>{viewingCitizen.address}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Reported Incidents */}
-                <div>
-                  <h4 className="text-lg font-bold mb-3 flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-blue-400" />
-                    Reported Incidents ({viewingCitizen.incidents.length})
-                  </h4>
-                  <div className="space-y-2">
-                    {viewingCitizen.incidents.map((incident: any) => (
-                      <div
-                        key={incident.id}
-                        className="p-4 bg-muted/20 border border-border/20 rounded-lg flex items-center justify-between"
-                      >
-                        <div>
-                          <p className="font-medium">{incident.title}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Report #{incident.id} • {incident.date}
-                          </p>
-                        </div>
-                        <span
-                          className={`text-xs px-3 py-1 rounded-full border ${
-                            incident.status === "completed"
-                              ? "text-green-400 border-green-400/30 bg-green-400/10"
-                              : incident.status === "in-progress"
-                                ? "text-neon-cyan border-neon-cyan/30 bg-neon-cyan/10"
-                                : "text-yellow-400 border-yellow-400/30 bg-yellow-400/10"
-                          }`}
-                        >
-                          {incident.status}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Feedback */}
-                <div>
-                  <h4 className="text-lg font-bold mb-3 flex items-center gap-2">
-                    <MessageSquare className="w-5 h-5 text-blue-400" />
-                    User Feedback
-                  </h4>
-                  <div className="p-6 bg-muted/20 border border-border/20 rounded-lg space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-2">UI Rating</p>
-                        <div className="flex items-center gap-1">
-                          {[...Array(5)].map((_, i) => (
-                            <span
-                              key={i}
-                              className={`text-lg ${
-                                i < viewingCitizen.feedback.uiRating ? "text-yellow-400" : "text-muted-foreground/30"
-                              }`}
-                            >
-                              ★
-                            </span>
-                          ))}
-                          <span className="ml-2 font-bold">{viewingCitizen.feedback.uiRating}/5</span>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-2">UX Rating</p>
-                        <div className="flex items-center gap-1">
-                          {[...Array(5)].map((_, i) => (
-                            <span
-                              key={i}
-                              className={`text-lg ${
-                                i < viewingCitizen.feedback.uxRating ? "text-yellow-400" : "text-muted-foreground/30"
-                              }`}
-                            >
-                              ★
-                            </span>
-                          ))}
-                          <span className="ml-2 font-bold">{viewingCitizen.feedback.uxRating}/5</span>
-                        </div>
-                      </div>
-                    </div>
-                    {viewingCitizen.feedback.comments && (
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-2">Comments</p>
-                        <p className="text-sm bg-muted/30 p-3 rounded-lg">{viewingCitizen.feedback.comments}</p>
-                      </div>
-                    )}
-                    {viewingCitizen.feedback.suggestions && (
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-2">Suggestions</p>
-                        <p className="text-sm bg-muted/30 p-3 rounded-lg">{viewingCitizen.feedback.suggestions}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end">
-                <Button
-                  onClick={() => setViewingCitizen(null)}
-                  variant="outline"
-                  className="border-border/30 hover:border-neon-cyan/40"
-                >
-                  Close
-                </Button>
-              </div>
-            </Card>
+            ))}
           </div>
-        )}
 
-        {/* Add User Form */}
-        {showAddUserForm && (
-          <Card className="mb-8 p-6 bg-gradient-to-br from-neon-cyan/5 to-neon-blue/5 border-neon-cyan/30">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">Create New User</h3>
-              <button
-                onClick={() => {
-                  setShowAddUserForm(false)
-                  setSelectedSpeciality("")
-                }}
-                className="p-2 hover:bg-muted/50 rounded-lg transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="mb-4">
-              <label className="text-sm text-muted-foreground block mb-2">User Role</label>
-              <div className="flex gap-3">
-                {[
-                  { value: "citizen", label: "Citizen", icon: UserCircle },
-                  { value: "technician", label: "Technician", icon: Wrench },
-                  { value: "team-leader", label: "Team Leader", icon: Shield },
-                ].map((role) => (
-                  <button
-                    key={role.value}
-                    onClick={() => {
-                      setNewUserRole(role.value as any)
-                      setSelectedSpeciality("")
-                    }}
-                    className={`flex-1 px-4 py-3 rounded-lg border transition-all ${
-                      newUserRole === role.value
-                        ? "border-neon-cyan/60 bg-neon-cyan/10 text-neon-cyan"
-                        : "border-border/30 hover:border-neon-cyan/30"
-                    }`}
-                  >
-                    <role.icon className="w-5 h-5 mx-auto mb-1" />
-                    <span className="text-sm font-medium">{role.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-4">
+          {/* ══════════ USERS TAB ══════════ */}
+          {activeTab === "users" && (
               <div>
-                <label className="text-sm text-muted-foreground block mb-2">Full Name</label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-2 bg-muted/30 border border-border/30 rounded-lg focus:border-neon-cyan/60 focus:outline-none"
-                  placeholder="John Doe"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground block mb-2">Email</label>
-                <input
-                  type="email"
-                  className="w-full px-4 py-2 bg-muted/30 border border-border/30 rounded-lg focus:border-neon-cyan/60 focus:outline-none"
-                  placeholder="john.doe@email.com"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground block mb-2">Phone</label>
-                <input
-                  type="tel"
-                  className="w-full px-4 py-2 bg-muted/30 border border-border/30 rounded-lg focus:border-neon-cyan/60 focus:outline-none"
-                  placeholder="+1 555-0100"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground block mb-2">Password</label>
-                <input
-                  type="password"
-                  className="w-full px-4 py-2 bg-muted/30 border border-border/30 rounded-lg focus:border-neon-cyan/60 focus:outline-none"
-                  placeholder="••••••••"
-                />
-              </div>
-
-              {newUserRole === "technician" && (
-                <>
-                  <div>
-                    <label className="text-sm text-muted-foreground block mb-2">Speciality *</label>
-                    <select
-                      value={selectedSpeciality}
-                      onChange={(e) => setSelectedSpeciality(e.target.value)}
-                      className="w-full px-4 py-2 bg-muted/30 border border-border/30 rounded-lg focus:border-neon-cyan/60 focus:outline-none"
-                    >
-                      <option value="">Select Speciality</option>
-                      {PROFESSIONAL_SPECIALITIES.map((spec) => (
-                        <option key={spec} value={spec}>
-                          {spec.replace(/_/g, " ")}
-                        </option>
-                      ))}
-                    </select>
+                <Card className="p-6 mb-8 bg-gradient-to-br from-neon-cyan/5 to-neon-blue/5 border-neon-cyan/20">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Filter className="w-5 h-5 text-neon-cyan" />
+                    <h2 className="text-lg font-semibold">Search Users</h2>
+                    <span className="text-xs text-muted-foreground ml-1">— combine filters for precise results</span>
                   </div>
-                  <div>
-                    <label className="text-sm text-muted-foreground block mb-2">Assign to Team *</label>
-                    <select
-                      disabled={!selectedSpeciality}
-                      className="w-full px-4 py-2 bg-muted/30 border border-border/30 rounded-lg focus:border-neon-cyan/60 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value="">{selectedSpeciality ? "Select Team" : "Select speciality first"}</option>
-                      {availableTeams.map((team) => (
-                        <option key={team} value={team}>
-                          {team}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              )}
 
-              {newUserRole === "team-leader" && (
-                <>
-                  <div>
-                    <label className="text-sm text-muted-foreground block mb-2">Speciality *</label>
-                    <select className="w-full px-4 py-2 bg-muted/30 border border-border/30 rounded-lg focus:border-neon-cyan/60 focus:outline-none">
-                      <option value="">Select Speciality</option>
-                      {PROFESSIONAL_SPECIALITIES.map((spec) => (
-                        <option key={spec} value={spec}>
-                          {spec.replace(/_/g, " ")}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-sm text-muted-foreground block mb-2">Team Name (Optional)</label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-2 bg-muted/30 border border-border/30 rounded-lg focus:border-neon-cyan/60 focus:outline-none"
-                      placeholder="Leave empty if no team yet"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-muted-foreground block mb-2">Zone (Optional)</label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-2 bg-muted/30 border border-border/30 rounded-lg focus:border-neon-cyan/60 focus:outline-none"
-                      placeholder="Leave empty if unassigned"
-                    />
-                  </div>
-                </>
-              )}
-
-              {newUserRole === "citizen" && (
-                <div className="col-span-2">
-                  <label className="text-sm text-muted-foreground block mb-2">Address</label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-2 bg-muted/30 border border-border/30 rounded-lg focus:border-neon-cyan/60 focus:outline-none"
-                    placeholder="123 Main St, District"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                onClick={handleAddUser}
-                className="bg-gradient-to-r from-neon-cyan/80 to-neon-blue/80 text-background hover:from-neon-cyan hover:to-neon-blue border border-neon-cyan/40"
-              >
-                Create User
-              </Button>
-              <Button
-                onClick={() => {
-                  setShowAddUserForm(false)
-                  setSelectedSpeciality("")
-                }}
-                variant="outline"
-                className="border-border/30 hover:border-neon-cyan/40"
-              >
-                Cancel
-              </Button>
-            </div>
-          </Card>
-        )}
-
-        {/* Filters and Search */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name or email..."
-              className="w-full pl-10 pr-4 py-2 bg-muted/30 border border-border/30 rounded-lg focus:border-neon-cyan/60 focus:outline-none"
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant={selectedRole === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedRole("all")}
-              className={
-                selectedRole === "all"
-                  ? "bg-neon-cyan/20 border-neon-cyan/40 text-neon-cyan"
-                  : "border-border/30 hover:border-neon-cyan/40"
-              }
-            >
-              All Users
-            </Button>
-            <Button
-              variant={selectedRole === "citizen" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedRole("citizen")}
-              className={
-                selectedRole === "citizen"
-                  ? "bg-neon-cyan/20 border-neon-cyan/40 text-neon-cyan"
-                  : "border-border/30 hover:border-neon-cyan/40"
-              }
-            >
-              Citizens
-            </Button>
-            <Button
-              variant={selectedRole === "technician" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedRole("technician")}
-              className={
-                selectedRole === "technician"
-                  ? "bg-neon-cyan/20 border-neon-cyan/40 text-neon-cyan"
-                  : "border-border/30 hover:border-neon-cyan/40"
-              }
-            >
-              Technicians
-            </Button>
-            <Button
-              variant={selectedRole === "team-leader" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedRole("team-leader")}
-              className={
-                selectedRole === "team-leader"
-                  ? "bg-neon-cyan/20 border-neon-cyan/40 text-neon-cyan"
-                  : "border-border/30 hover:border-neon-cyan/40"
-              }
-            >
-              Leaders
-            </Button>
-          </div>
-        </div>
-
-        {/* Users List */}
-        <div className="space-y-4">
-          {filteredUsers.map((user) => (
-            <Card
-              key={user.id}
-              className="p-6 bg-gradient-to-br from-card to-card/50 border-border/20 hover:border-neon-cyan/30 transition-all duration-300"
-            >
-              {editingUser === user.id ? (
-                <div>
-                  {/* Edit form remains similar but should be updated with new fields */}
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
-                      <label className="text-sm text-muted-foreground block mb-2">Full Name</label>
-                      <input
-                        type="text"
-                        defaultValue={user.name}
-                        className="w-full px-4 py-2 bg-muted/30 border border-border/30 rounded-lg focus:border-neon-cyan/60 focus:outline-none"
-                      />
+                      <label className="block text-xs text-muted-foreground mb-2">Role</label>
+                      <select value={filterRole} onChange={e => setFilterRole(e.target.value as Role | "")}
+                              className="w-full px-4 py-2 bg-background border border-neon-cyan/20 focus:border-neon-cyan/50 rounded-lg text-foreground focus:outline-none text-sm">
+                        <option value="">Any role</option>
+                        {ROLES.map(r => <option key={r} value={r}>{fmt(r)}</option>)}
+                      </select>
                     </div>
                     <div>
-                      <label className="text-sm text-muted-foreground block mb-2">Email</label>
-                      <input
-                        type="email"
-                        defaultValue={user.email}
-                        className="w-full px-4 py-2 bg-muted/30 border border-border/30 rounded-lg focus:border-neon-cyan/60 focus:outline-none"
-                      />
+                      <label className="block text-xs text-muted-foreground mb-2">Speciality</label>
+                      <select value={filterSpeciality} onChange={e => setFilterSpeciality(e.target.value as ProfessionalSpeciality | "")}
+                              className="w-full px-4 py-2 bg-background border border-neon-cyan/20 focus:border-neon-cyan/50 rounded-lg text-foreground focus:outline-none text-sm">
+                        <option value="">Any speciality</option>
+                        {SPECIALITIES.map(s => <option key={s} value={s}>{fmt(s)}</option>)}
+                      </select>
                     </div>
                     <div>
-                      <label className="text-sm text-muted-foreground block mb-2">Phone</label>
-                      <input
-                        type="tel"
-                        defaultValue={user.phone}
-                        className="w-full px-4 py-2 bg-muted/30 border border-border/30 rounded-lg focus:border-neon-cyan/60 focus:outline-none"
-                      />
-                    </div>
-                    {user.role === "technician" && (
-                      <div>
-                        <label className="text-sm text-muted-foreground block mb-2">Specialty</label>
-                        <select
-                          defaultValue={user.specialty}
-                          className="w-full px-4 py-2 bg-muted/30 border border-border/30 rounded-lg focus:border-neon-cyan/60 focus:outline-none"
-                        >
-                          {PROFESSIONAL_SPECIALITIES.map((spec) => (
-                            <option key={spec} value={spec}>
-                              {spec.replace(/_/g, " ")}
-                            </option>
-                          ))}
-                        </select>
+                      <label className="block text-xs text-muted-foreground mb-2">Email (exact)</label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <input type="email" value={filterEmail} onChange={e => setFilterEmail(e.target.value)}
+                               onKeyDown={e => e.key === "Enter" && handleSearch()}
+                               placeholder="user@intervenia.com"
+                               className="w-full pl-9 pr-4 py-2 bg-background border border-neon-cyan/20 focus:border-neon-cyan/50 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none text-sm" />
                       </div>
-                    )}
+                    </div>
                   </div>
+
+                  {/* Active filter chips */}
+                  {(filterRole || filterSpeciality || filterEmail) && (
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {filterRole && (
+                            <span className="text-xs px-3 py-1 rounded-full bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan flex items-center gap-1">
+                      Role: {fmt(filterRole)}<button onClick={() => setFilterRole("")} className="ml-1 hover:text-white font-bold">×</button>
+                    </span>
+                        )}
+                        {filterSpeciality && (
+                            <span className="text-xs px-3 py-1 rounded-full bg-neon-blue/10 border border-neon-blue/30 text-neon-blue flex items-center gap-1">
+                      Spec: {fmt(filterSpeciality)}<button onClick={() => setFilterSpeciality("")} className="ml-1 hover:text-white font-bold">×</button>
+                    </span>
+                        )}
+                        {filterEmail && (
+                            <span className="text-xs px-3 py-1 rounded-full bg-green-400/10 border border-green-400/30 text-green-400 flex items-center gap-1">
+                      Email: {filterEmail}<button onClick={() => setFilterEmail("")} className="ml-1 hover:text-white font-bold">×</button>
+                    </span>
+                        )}
+                      </div>
+                  )}
+
                   <div className="flex gap-3">
-                    <Button
-                      onClick={handleSaveUser}
-                      className="bg-gradient-to-r from-neon-cyan/80 to-neon-blue/80 text-background hover:from-neon-cyan hover:to-neon-blue border border-neon-cyan/40"
-                    >
-                      Save Changes
+                    <Button onClick={handleSearch}
+                            disabled={loadingUsers || (!filterRole && !filterSpeciality && !filterEmail.trim())}
+                            className="bg-gradient-to-r from-neon-cyan/80 to-neon-blue/80 text-background hover:from-neon-cyan hover:to-neon-blue border border-neon-cyan/40">
+                      {loadingUsers ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}Search
                     </Button>
-                    <Button
-                      onClick={() => setEditingUser(null)}
-                      variant="outline"
-                      className="border-border/30 hover:border-neon-cyan/40"
-                    >
-                      Cancel
+                    {hasSearched && (
+                        <Button onClick={clearFilters} variant="outline" className="border-border/30 hover:border-border/60 text-foreground">Clear</Button>
+                    )}
+                    <Button onClick={() => setShowAddUser(!showAddUser)} variant="outline"
+                            className="ml-auto border-neon-cyan/30 hover:border-neon-cyan/60 hover:bg-neon-cyan/5 bg-transparent text-foreground hover:text-neon-cyan">
+                      <Plus className="w-4 h-4 mr-2" />Add User
                     </Button>
                   </div>
-                </div>
-              ) : (
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div
-                        className={`w-10 h-10 rounded-full bg-gradient-to-br ${
-                          user.role === "citizen"
-                            ? "from-blue-400 to-blue-500"
-                            : user.role === "technician"
-                              ? "from-neon-cyan to-neon-blue"
-                              : "from-neon-purple to-neon-blue"
-                        } flex items-center justify-center text-sm font-bold text-background`}
-                      >
-                        {user.role === "citizen" && user.photo ? user.photo : user.name.substring(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-lg">{user.name}</h3>
-                        <span className={`text-xs px-2 py-1 rounded-full border ${getRoleColor(user.role)} capitalize`}>
-                          {getRoleIcon(user.role)}
-                          <span className="ml-1">{user.role.replace("-", " ")}</span>
-                        </span>
-                      </div>
-                    </div>
+                </Card>
 
-                    <div className="grid grid-cols-2 gap-3 text-sm text-muted-foreground mb-4">
-                      <div className="flex items-center gap-2">
-                        <Mail className="w-4 h-4" />
-                        <span>{user.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Phone className="w-4 h-4" />
-                        <span>{user.phone}</span>
-                      </div>
-                      {user.role === "citizen" && user.address && (
-                        <div className="flex items-center gap-2 col-span-2">
-                          <MapPin className="w-4 h-4" />
-                          <span>{user.address}</span>
-                        </div>
-                      )}
-                      {user.role === "technician" && (
-                        <>
-                          <div>
-                            <span className="text-foreground font-medium">Specialty:</span>{" "}
-                            {user.specialty?.replace(/_/g, " ")}
-                          </div>
-                          <div>
-                            <span className="text-foreground font-medium">Team:</span> {user.team}
-                          </div>
-                          <div>
-                            <span className="text-foreground font-medium">Tasks Completed:</span> {user.tasksCompleted}
-                          </div>
-                        </>
-                      )}
-                      {user.role === "team-leader" && (
-                        <>
-                          <div>
-                            <span className="text-foreground font-medium">Specialty:</span>{" "}
-                            {user.specialty?.replace(/_/g, " ")}
-                          </div>
-                          {user.team && (
-                            <div>
-                              <span className="text-foreground font-medium">Team:</span> {user.team}
+                {showAddUser && (
+                    <Card className="p-6 mb-8 bg-gradient-to-br from-neon-cyan/5 to-neon-blue/5 border-neon-cyan/30">
+                      <h3 className="text-xl font-bold mb-4">Add New User</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        {([
+                          { label: "Username", key: "username", type: "text", placeholder: "e.g. john.doe" },
+                          { label: "Email", key: "email", type: "email", placeholder: "john@intervenia.com" },
+                          { label: "Password", key: "password", type: "password", placeholder: "••••••••" },
+                        ] as const).map(({ label, key, type, placeholder }) => (
+                            <div key={key}>
+                              <label className="block text-sm text-muted-foreground mb-2">{label}</label>
+                              <input type={type} value={(newUser as any)[key] ?? ""} placeholder={placeholder}
+                                     onChange={e => setNewUser({ ...newUser, [key]: e.target.value })}
+                                     className="w-full px-4 py-2 bg-background border border-neon-cyan/30 rounded-lg text-foreground focus:border-neon-cyan/60 focus:outline-none" />
                             </div>
-                          )}
-                          {user.zone && (
-                            <div>
-                              <span className="text-foreground font-medium">Zone:</span> {user.zone}
-                            </div>
-                          )}
-                          <div>
-                            <span className="text-foreground font-medium">Team Size:</span> {user.teamSize}
-                          </div>
-                        </>
-                      )}
-                      {user.role === "citizen" && (
+                        ))}
                         <div>
-                          <span className="text-foreground font-medium">Reports Submitted:</span>{" "}
-                          {user.reportsSubmitted}
+                          <label className="block text-sm text-muted-foreground mb-2">Role</label>
+                          <select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value as Role })}
+                                  className="w-full px-4 py-2 bg-background border border-neon-cyan/30 rounded-lg text-foreground focus:outline-none">
+                            {ROLES.map(r => <option key={r} value={r}>{fmt(r)}</option>)}
+                          </select>
                         </div>
-                      )}
-                    </div>
-
-                    <div className="flex gap-2">
-                      {user.role === "citizen" && (
-                        <Button
-                          onClick={() => setViewingCitizen(user)}
-                          size="sm"
-                          variant="outline"
-                          className="border-blue-400/30 hover:border-blue-400/60 hover:bg-blue-400/5 bg-transparent text-blue-400"
-                        >
-                          <UserCircle className="w-3 h-3 mr-1" />
-                          View Details
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-2">Speciality</label>
+                          <select value={newUser.speciality} onChange={e => setNewUser({ ...newUser, speciality: e.target.value as ProfessionalSpeciality })}
+                                  className="w-full px-4 py-2 bg-background border border-neon-cyan/30 rounded-lg text-foreground focus:outline-none">
+                            {SPECIALITIES.map(s => <option key={s} value={s}>{fmt(s)}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-2">Shift Start</label>
+                          <input type="number" min={0} max={23} value={newUser.shiftStart}
+                                 onChange={e => setNewUser({ ...newUser, shiftStart: parseInt(e.target.value) })}
+                                 className="w-full px-4 py-2 bg-background border border-neon-cyan/30 rounded-lg text-foreground focus:outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-2">Shift End</label>
+                          <input type="number" min={0} max={23} value={newUser.shiftEnd}
+                                 onChange={e => setNewUser({ ...newUser, shiftEnd: parseInt(e.target.value) })}
+                                 className="w-full px-4 py-2 bg-background border border-neon-cyan/30 rounded-lg text-foreground focus:outline-none" />
+                        </div>
+                        <div className="flex items-center gap-6 mt-2">
+                          <label className="flex items-center gap-2 cursor-pointer text-sm">
+                            <input type="checkbox" checked={newUser.onCall} onChange={e => setNewUser({ ...newUser, onCall: e.target.checked })} className="w-4 h-4" />On Call
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer text-sm">
+                            <input type="checkbox" checked={newUser.isAvailable} onChange={e => setNewUser({ ...newUser, isAvailable: e.target.checked })} className="w-4 h-4" />Available
+                          </label>
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <Button onClick={handleAddUser} disabled={savingUser}
+                                className="bg-gradient-to-r from-neon-cyan/80 to-neon-blue/80 text-background hover:from-neon-cyan hover:to-neon-blue border border-neon-cyan/40">
+                          {savingUser && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Save User
                         </Button>
-                      )}
-                      <Button
-                        onClick={() => handleEditUser(user.id)}
-                        size="sm"
-                        variant="outline"
-                        className="border-neon-cyan/30 hover:border-neon-cyan/60 hover:bg-neon-cyan/5 bg-transparent"
-                      >
-                        <Edit className="w-3 h-3 mr-1" />
-                        Edit
-                      </Button>
-                      <Button
-                        onClick={() => handleDeleteUser(user.id)}
-                        size="sm"
-                        variant="outline"
-                        className="border-red-400/30 hover:border-red-400/60 hover:bg-red-400/5 bg-transparent text-red-400"
-                      >
-                        <Trash2 className="w-3 h-3 mr-1" />
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </Card>
-          ))}
-        </div>
+                        <Button onClick={() => setShowAddUser(false)} variant="outline" className="border-border/30">Cancel</Button>
+                      </div>
+                    </Card>
+                )}
 
-        {filteredUsers.length === 0 && (
-          <Card className="p-12 text-center bg-gradient-to-br from-card to-card/50 border-border/20">
-            <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">No users found</h3>
-            <p className="text-muted-foreground">Try adjusting your search or filters</p>
-          </Card>
-        )}
-      </main>
-    </div>
+                {userError && (
+                    <Card className="p-4 mb-6 border-red-400/30 bg-red-400/5 flex items-center gap-3">
+                      <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+                      <p className="text-red-400 text-sm">{userError}</p>
+                    </Card>
+                )}
+
+                {loadingUsers && (
+                    <div className="flex items-center justify-center py-24">
+                      <Loader2 className="w-8 h-8 text-neon-cyan animate-spin mr-3" />
+                      <span className="text-muted-foreground">Searching...</span>
+                    </div>
+                )}
+
+                {!hasSearched && !loadingUsers && (
+                    <div className="flex flex-col items-center justify-center py-24 text-center">
+                      <div className="w-16 h-16 rounded-full bg-neon-cyan/10 border border-neon-cyan/20 flex items-center justify-center mb-4">
+                        <Users className="w-8 h-8 text-neon-cyan/50" />
+                      </div>
+                      <p className="text-muted-foreground text-lg mb-2">No search performed yet</p>
+                      <p className="text-muted-foreground text-sm">Combine role + speciality for precise results, or search by exact email</p>
+                    </div>
+                )}
+
+                {hasSearched && !loadingUsers && (
+                    <>
+                      {users.length > 0 && (
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Found <span className="text-neon-cyan font-semibold">{users.length}</span> user{users.length !== 1 ? "s" : ""}
+                          </p>
+                      )}
+                      <div className="space-y-4">
+                        {users.map(user => (
+                            <Card key={user.id} className="p-6 bg-gradient-to-br from-card to-card/50 border-border/20 hover:border-neon-cyan/30 transition-all">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex items-start gap-4 flex-1">
+                                  <div className="w-12 h-12 rounded-full bg-neon-cyan/10 border border-neon-cyan/20 flex items-center justify-center text-sm font-bold text-neon-cyan shrink-0">
+                                    {initials(user.username)}
+                                  </div>
+                                  <div className="flex-1">
+                                    {editingUserId === user.id ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                                          {([
+                                            { label: "Username", key: "username", type: "text" },
+                                            { label: "Email", key: "email", type: "email" },
+                                          ] as const).map(({ label, key, type }) => (
+                                              <div key={key}>
+                                                <label className="block text-xs text-muted-foreground mb-1">{label}</label>
+                                                <input type={type} value={(editUserData as any)[key] ?? ""}
+                                                       onChange={e => setEditUserData({ ...editUserData, [key]: e.target.value })}
+                                                       className="w-full px-3 py-1.5 bg-background border border-neon-cyan/30 rounded-lg text-sm text-foreground focus:outline-none" />
+                                              </div>
+                                          ))}
+                                          <div>
+                                            <label className="block text-xs text-muted-foreground mb-1">Role</label>
+                                            <select value={editUserData.role} onChange={e => setEditUserData({ ...editUserData, role: e.target.value as Role })}
+                                                    className="w-full px-3 py-1.5 bg-background border border-neon-cyan/30 rounded-lg text-sm text-foreground focus:outline-none">
+                                              {ROLES.map(r => <option key={r} value={r}>{fmt(r)}</option>)}
+                                            </select>
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs text-muted-foreground mb-1">Speciality</label>
+                                            <select value={editUserData.speciality} onChange={e => setEditUserData({ ...editUserData, speciality: e.target.value as ProfessionalSpeciality })}
+                                                    className="w-full px-3 py-1.5 bg-background border border-neon-cyan/30 rounded-lg text-sm text-foreground focus:outline-none">
+                                              {SPECIALITIES.map(s => <option key={s} value={s}>{fmt(s)}</option>)}
+                                            </select>
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs text-muted-foreground mb-1">Shift Start</label>
+                                            <input type="number" min={0} max={23} value={editUserData.shiftStart ?? 8}
+                                                   onChange={e => setEditUserData({ ...editUserData, shiftStart: parseInt(e.target.value) })}
+                                                   className="w-full px-3 py-1.5 bg-background border border-neon-cyan/30 rounded-lg text-sm text-foreground focus:outline-none" />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs text-muted-foreground mb-1">Shift End</label>
+                                            <input type="number" min={0} max={23} value={editUserData.shiftEnd ?? 16}
+                                                   onChange={e => setEditUserData({ ...editUserData, shiftEnd: parseInt(e.target.value) })}
+                                                   className="w-full px-3 py-1.5 bg-background border border-neon-cyan/30 rounded-lg text-sm text-foreground focus:outline-none" />
+                                          </div>
+                                          <div className="flex items-center gap-4 mt-1">
+                                            <label className="flex items-center gap-2 cursor-pointer text-sm">
+                                              <input type="checkbox" checked={editUserData.onCall ?? false} onChange={e => setEditUserData({ ...editUserData, onCall: e.target.checked })} className="w-4 h-4" />On Call
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer text-sm">
+                                              <input type="checkbox" checked={editUserData.isAvailable ?? true} onChange={e => setEditUserData({ ...editUserData, isAvailable: e.target.checked })} className="w-4 h-4" />Available
+                                            </label>
+                                          </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                          <div className="flex items-center gap-3 mb-3 flex-wrap">
+                                            <h3 className="font-semibold text-lg">{user.username}</h3>
+                                            <span className={`text-xs px-2 py-1 rounded-full border flex items-center gap-1 ${getRoleColor(user.role)}`}>
+                                    {getRoleIcon(user.role)}{fmt(user.role)}
+                                  </span>
+                                            {user.isAvailable
+                                                ? <span className="text-xs px-2 py-1 rounded-full border text-green-400 border-green-400/30 bg-green-400/10">Available</span>
+                                                : <span className="text-xs px-2 py-1 rounded-full border text-red-400 border-red-400/30 bg-red-400/10">Unavailable</span>
+                                            }
+                                            {user.onCall && <span className="text-xs px-2 py-1 rounded-full border text-neon-cyan border-neon-cyan/30 bg-neon-cyan/10">On Call</span>}
+                                          </div>
+                                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                            <div><p className="text-muted-foreground mb-1">Email</p><p className="font-semibold truncate">{user.email}</p></div>
+                                            <div><p className="text-muted-foreground mb-1">Speciality</p><p className="font-semibold text-neon-cyan">{fmt(user.speciality)}</p></div>
+                                            <div><p className="text-muted-foreground mb-1">Shift</p><p className="font-semibold">{user.shiftStart}:00 – {user.shiftEnd}:00</p></div>
+                                            <div>
+                                              <p className="text-muted-foreground mb-1">Team</p>
+                                              <p className="font-semibold text-neon-blue text-xs">{user.team ? `${fmt(user.team.speciality)} · ${user.team.zone}` : "No team"}</p>
+                                            </div>
+                                          </div>
+                                        </>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex flex-col gap-2 shrink-0">
+                                  {editingUserId === user.id ? (
+                                      <>
+                                        <Button size="sm" onClick={() => handleUpdateUser(user.id)} disabled={savingUser}
+                                                className="bg-gradient-to-r from-neon-cyan/80 to-neon-blue/80 text-background hover:from-neon-cyan hover:to-neon-blue border border-neon-cyan/40">
+                                          {savingUser ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => { setEditingUserId(null); setEditUserData({}) }}
+                                                className="border-border/30 text-foreground">Cancel</Button>
+                                      </>
+                                  ) : (
+                                      <>
+                                        <Button size="sm" variant="outline"
+                                                onClick={() => { setEditingUserId(user.id); setEditUserData({ ...user }) }}
+                                                className="border-neon-cyan/30 hover:border-neon-cyan/60 hover:bg-neon-cyan/5 bg-transparent text-foreground hover:text-neon-cyan">
+                                          <Edit className="w-4 h-4 mr-2" />Edit
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => handleDeleteUser(user.id)}
+                                                className="border-red-400/30 hover:border-red-400/60 hover:bg-red-400/5 bg-transparent text-red-400 hover:text-red-300">
+                                          <Trash2 className="w-4 h-4 mr-2" />Delete
+                                        </Button>
+                                      </>
+                                  )}
+                                </div>
+                              </div>
+                            </Card>
+                        ))}
+                        {users.length === 0 && (
+                            <Card className="p-12 text-center bg-gradient-to-br from-card to-card/50 border-border/20">
+                              <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                              <p className="text-muted-foreground">No users found for this search.</p>
+                            </Card>
+                        )}
+                      </div>
+                    </>
+                )}
+              </div>
+          )}
+
+          {/* ══════════ TEAMS TAB ══════════ */}
+          {activeTab === "teams" && (
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <p className="text-sm text-muted-foreground">
+                    {teams.length > 0 ? <><span className="text-neon-cyan font-semibold">{teams.length}</span> teams</> : "No teams yet"}
+                  </p>
+                  <Button onClick={() => setShowAddTeam(!showAddTeam)}
+                          className="bg-gradient-to-r from-neon-cyan/80 to-neon-blue/80 text-background hover:from-neon-cyan hover:to-neon-blue border border-neon-cyan/40">
+                    <Plus className="w-4 h-4 mr-2" />Create Team
+                  </Button>
+                </div>
+
+                {showAddTeam && (
+                    <Card className="p-6 mb-6 bg-gradient-to-br from-neon-cyan/5 to-neon-blue/5 border-neon-cyan/30">
+                      <h3 className="text-xl font-bold mb-4">Create New Team</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-2">Speciality</label>
+                          <select value={newTeam.speciality} onChange={e => setNewTeam({ ...newTeam, speciality: e.target.value as ProfessionalSpeciality })}
+                                  className="w-full px-4 py-2 bg-background border border-neon-cyan/30 rounded-lg text-foreground focus:outline-none">
+                            {SPECIALITIES.map(s => <option key={s} value={s}>{fmt(s)}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-2">Zone</label>
+                          <select value={newTeam.zone} onChange={e => setNewTeam({ ...newTeam, zone: e.target.value as Zone })}
+                                  className="w-full px-4 py-2 bg-background border border-neon-cyan/30 rounded-lg text-foreground focus:outline-none">
+                            {ZONES.map(z => <option key={z} value={z}>{z}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-2">Leader ID</label>
+                          <input type="text" value={newTeam.leaderId} placeholder="Leader user ID"
+                                 onChange={e => setNewTeam({ ...newTeam, leaderId: e.target.value })}
+                                 className="w-full px-4 py-2 bg-background border border-neon-cyan/30 rounded-lg text-foreground focus:border-neon-cyan/60 focus:outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-muted-foreground mb-2">Technician IDs (comma-separated)</label>
+                          <input type="text" value={newTeamTechInput} placeholder="id1, id2, id3..."
+                                 onChange={e => {
+                                   setNewTeamTechInput(e.target.value)
+                                   setNewTeam({ ...newTeam, technicianIds: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })
+                                 }}
+                                 className="w-full px-4 py-2 bg-background border border-neon-cyan/30 rounded-lg text-foreground focus:border-neon-cyan/60 focus:outline-none" />
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <Button onClick={handleCreateTeam} disabled={savingTeam}
+                                className="bg-gradient-to-r from-neon-cyan/80 to-neon-blue/80 text-background hover:from-neon-cyan hover:to-neon-blue border border-neon-cyan/40">
+                          {savingTeam && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Create Team
+                        </Button>
+                        <Button onClick={() => setShowAddTeam(false)} variant="outline" className="border-border/30">Cancel</Button>
+                      </div>
+                    </Card>
+                )}
+
+                {teamError && (
+                    <Card className="p-4 mb-6 border-red-400/30 bg-red-400/5 flex items-center gap-3">
+                      <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+                      <p className="text-red-400 text-sm">{teamError}</p>
+                      <Button size="sm" variant="outline" onClick={fetchTeams} className="ml-auto border-red-400/30">Retry</Button>
+                    </Card>
+                )}
+
+                {loadingTeams ? (
+                    <div className="flex items-center justify-center py-24">
+                      <Loader2 className="w-8 h-8 text-neon-cyan animate-spin mr-3" />
+                      <span className="text-muted-foreground">Loading teams...</span>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                      {teams.map(team => (
+                          <Card key={team.id} className="bg-gradient-to-br from-card to-card/50 border-border/20 hover:border-neon-cyan/30 transition-all overflow-hidden">
+                            <div className="p-6">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-12 h-12 rounded-xl bg-neon-blue/10 border border-neon-blue/20 flex items-center justify-center shrink-0">
+                                    <Users className="w-6 h-6 text-neon-blue" />
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-3 mb-1">
+                                      <h3 className="font-semibold text-lg">{fmt(team.speciality)}</h3>
+                                      <span className="text-xs px-2 py-1 rounded-full border text-neon-blue border-neon-blue/30 bg-neon-blue/10 flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />{team.zone}
+                              </span>
+                                    </div>
+                                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Star className="w-3 h-3 text-yellow-400" />Leader ID: <span className="font-mono text-xs text-foreground ml-1">{team.leaderId ? team.leaderId.slice(0, 8) + "..." : "—"}</span>
+                              </span>
+                                      <span className="flex items-center gap-1">
+                                <Wrench className="w-3 h-3" />{team.technicianIds?.length ?? 0} technician{(team.technicianIds?.length ?? 0) !== 1 ? "s" : ""}
+                              </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {editingTeamId === team.id ? (
+                                      <div className="flex items-center gap-2">
+                                        <select value={editTeamZone} onChange={e => setEditTeamZone(e.target.value as Zone)}
+                                                className="px-3 py-1.5 bg-background border border-neon-cyan/30 rounded-lg text-sm text-foreground focus:outline-none">
+                                          {ZONES.map(z => <option key={z} value={z}>{z}</option>)}
+                                        </select>
+                                        <Button size="sm" onClick={() => handleUpdateTeamZone(team.id)} disabled={savingTeam}
+                                                className="bg-gradient-to-r from-neon-cyan/80 to-neon-blue/80 text-background border border-neon-cyan/40">
+                                          {savingTeam ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => setEditingTeamId(null)} className="border-border/30 text-foreground">Cancel</Button>
+                                      </div>
+                                  ) : (
+                                      <Button size="sm" variant="outline"
+                                              onClick={() => { setEditingTeamId(team.id); setEditTeamZone(team.zone) }}
+                                              className="border-neon-cyan/30 hover:border-neon-cyan/60 hover:bg-neon-cyan/5 bg-transparent text-foreground hover:text-neon-cyan">
+                                        <Edit className="w-4 h-4 mr-1" />Zone
+                                      </Button>
+                                  )}
+                                  <Button size="sm" variant="outline" onClick={() => handleDeleteTeam(team.id)}
+                                          className="border-red-400/30 hover:border-red-400/60 hover:bg-red-400/5 bg-transparent text-red-400 hover:text-red-300">
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                  <button onClick={() => handleExpandTeam(team)}
+                                          className="p-2 hover:bg-muted/50 rounded-lg transition-colors text-muted-foreground hover:text-foreground">
+                                    {expandedTeam === team.id ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {expandedTeam === team.id && (
+                                <div className="border-t border-border/20 bg-muted/5 p-6">
+                                  {loadingMembers === team.id ? (
+                                      <div className="flex items-center gap-3 py-4">
+                                        <Loader2 className="w-5 h-5 text-neon-cyan animate-spin" />
+                                        <span className="text-sm text-muted-foreground">Loading members...</span>
+                                      </div>
+                                  ) : (
+                                      <>
+                                        <h4 className="text-xs font-semibold text-muted-foreground mb-4 uppercase tracking-wider">Team Members</h4>
+                                        {(teamMembers[team.id] ?? []).length === 0 ? (
+                                            <p className="text-sm text-muted-foreground text-center py-4">No members found for this team.</p>
+                                        ) : (
+                                            <div className="space-y-3">
+                                              {(teamMembers[team.id] ?? []).map(member => (
+                                                  <div key={member.id}
+                                                       className="flex items-center justify-between p-4 bg-background/50 rounded-lg border border-border/20 hover:border-neon-cyan/20 transition-all">
+                                                    <div className="flex items-center gap-3">
+                                                      <div className="w-9 h-9 rounded-full bg-neon-cyan/10 border border-neon-cyan/20 flex items-center justify-center text-xs font-bold text-neon-cyan">
+                                                        {initials(member.username)}
+                                                      </div>
+                                                      <div>
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                          <p className="font-semibold text-sm">{member.username}</p>
+                                                          {member.id === team.leaderId && (
+                                                              <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-400/10 border border-yellow-400/30 text-yellow-400 flex items-center gap-1">
+                                              <Star className="w-2.5 h-2.5" />Leader
+                                            </span>
+                                                          )}
+                                                          <span className={`text-xs px-2 py-0.5 rounded-full border flex items-center gap-1 ${getRoleColor(member.role)}`}>
+                                            {getRoleIcon(member.role)}{fmt(member.role)}
+                                          </span>
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground">{member.email} · Shift {member.shiftStart}:00–{member.shiftEnd}:00</p>
+                                                      </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                      {member.isAvailable
+                                                          ? <span className="text-xs px-2 py-0.5 rounded-full border text-green-400 border-green-400/30 bg-green-400/10">Available</span>
+                                                          : <span className="text-xs px-2 py-0.5 rounded-full border text-red-400 border-red-400/30 bg-red-400/10">Unavailable</span>
+                                                      }
+                                                      {member.id !== team.leaderId && (
+                                                          <Button size="sm" variant="outline"
+                                                                  onClick={() => handleRemoveTechnician(team.id, member.id)}
+                                                                  className="border-red-400/30 hover:border-red-400/60 hover:bg-red-400/5 bg-transparent text-red-400 hover:text-red-300 h-7 px-2">
+                                                            <UserMinus className="w-3 h-3" />
+                                                          </Button>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                              ))}
+                                            </div>
+                                        )}
+                                      </>
+                                  )}
+                                </div>
+                            )}
+                          </Card>
+                      ))}
+
+                      {teams.length === 0 && !loadingTeams && (
+                          <Card className="p-12 text-center bg-gradient-to-br from-card to-card/50 border-border/20">
+                            <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                            <p className="text-muted-foreground">No teams yet. Create one to get started.</p>
+                          </Card>
+                      )}
+                    </div>
+                )}
+              </div>
+          )}
+        </main>
+      </div>
   )
 }
