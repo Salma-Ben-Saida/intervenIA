@@ -76,6 +76,8 @@ public class PlanningProblemBuilder {
             } else {
                 deadlineHour = earliestHour + urgencyToHours(inc.getUrgencyLevel())
                         - estimateDuration(inc);
+                // Clamp to avoid negative windows
+                deadlineHour = Math.max(earliestHour, deadlineHour);
             }
 
             PlanningTask base = new PlanningTask(
@@ -143,7 +145,7 @@ public class PlanningProblemBuilder {
 
     private List<PlanningTechnician> loadTechnicians() {
 
-        List<User> users = userRepository.findByRole(Role.TECHNICIAN);
+        List<User> users = userRepository.findByRoleAndIsAvailableTrueAndTeamIdIsNotNull(Role.TECHNICIAN);
         List<PlanningTechnician> out = new ArrayList<>();
 
         // Preload teams into a map for quick lookups
