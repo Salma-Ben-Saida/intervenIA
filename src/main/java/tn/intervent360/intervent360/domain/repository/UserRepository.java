@@ -22,6 +22,12 @@ public interface UserRepository extends MongoRepository<User, String> {
 
     List<User> findByTeamIdInAndIsAvailableAndRole(List<String> teamIds, boolean isAvailable, Role role);
 
+    // Server-side count for availability by teamIds/role
+    long countByTeamIdInAndIsAvailableAndRole(List<String> teamIds, boolean isAvailable, Role role);
+
+    // Narrower technician query for planning
+    List<User> findByRoleAndIsAvailableTrueAndTeamIdIsNotNull(Role role);
+
     List<User> findByEmailContainingIgnoreCase(String substring);
 
     Optional<User> findByRoleAndManagedZoneAndManagedSpeciality(
