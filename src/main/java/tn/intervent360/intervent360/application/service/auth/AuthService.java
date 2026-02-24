@@ -33,7 +33,10 @@ public class AuthService {
         return new AuthResponse(
                 token,
                 user.getRole().name(),
-                user.getId()
+                user.getId(),
+                user.getUsername(),
+                user.getManagedZone() != null ? user.getManagedZone().name() : null,
+                user.getSpeciality() != null ? user.getSpeciality().name() : null
         );
     }
 }

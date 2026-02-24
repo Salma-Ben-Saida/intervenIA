@@ -5,8 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import tn.intervent360.intervent360.application.service.planning.PlanningCompletionService;
 import tn.intervent360.intervent360.application.service.planning.PlanningService;
 import tn.intervent360.intervent360.domain.model.planning.PlanningStatus;
+import tn.intervent360.intervent360.domain.repository.planning.PlanningAssignmentRepository;
 import tn.intervent360.intervent360.infrastructure.planning.PlanningScheduler;
 import tn.intervent360.intervent360.domain.model.planning.PlanningSolution;
 import tn.intervent360.intervent360.domain.model.planning.PlanningAssignment;
@@ -23,17 +25,20 @@ import java.util.List;
  *
  * This controller NEVER calls the solver directly.
  * It delegates to:
- *     - PlanningService   (orchestration)
+ *     - PlanningService (orchestration)
  *     - PlanningScheduler (async triggers)
  */
 @Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/planning")
+@CrossOrigin(origins = "*")
 public class PlanningController {
 
     private final PlanningService planningService;
     private final PlanningScheduler scheduler;
+    private final PlanningCompletionService completionService;
+    private final PlanningAssignmentRepository assignmentRepository;
 
     // ---------------------------------------------------------------------
     // TRIGGER PLANNING RUNS
@@ -100,5 +105,26 @@ public class PlanningController {
     @GetMapping("/team/{teamId}")
     public ResponseEntity<List<PlanningAssignment>> getByTeam(@PathVariable String teamId) {
         return ResponseEntity.ok(planningService.getAssignmentsForTeam(teamId));
+    }
+
+    @PatchMapping("/assignments/{assignmentId}/start")
+    public ResponseEntity<PlanningAssignment> startAssignment(
+            @PathVariable String assignmentId) {
+        return ResponseEntity.ok(completionService.startAssignment(assignmentId));
+    }
+
+    @PatchMapping("/assignments/{assignmentId}/complete")
+    public ResponseEntity<PlanningAssignment> completeAssignment(
+            @PathVariable String assignmentId) {
+        return ResponseEntity.ok(completionService.completeAssignment(assignmentId));
+    }
+
+    @GetMapping("/assignments/{assignmentId}")
+    public ResponseEntity<PlanningAssignment> getAssignment(
+            @PathVariable String assignmentId) {
+        return ResponseEntity.ok(
+                assignmentRepository.findById(assignmentId)
+                        .orElseThrow(() -> new IllegalArgumentException("Assignment not found"))
+        );
     }
 }

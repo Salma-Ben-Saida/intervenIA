@@ -22,5 +22,9 @@ public interface PlanningAssignmentRepository extends MongoRepository<PlanningAs
             Instant now1,
             Instant now2
     );
+
+    boolean existsByIncidentIdAndStatusNot(String incidentId, PlanningStatus status);
+
+    long countByIncidentId(String incidentId);
 }
 

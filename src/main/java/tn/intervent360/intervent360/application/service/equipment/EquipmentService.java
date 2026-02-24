@@ -39,6 +39,12 @@ public class EquipmentService {
             throw new IllegalArgumentException("Equipment already exists.");
         }
     }
+    public List<EquipmentDTO> findByZone(Zone zone) {
+        return equipmentRepository.findByZone(zone)
+                .stream()
+                .map(EquipmentMapper::toDTO)
+                .collect(Collectors.toList());
+    }
 
     public EquipmentDTO findById(String id) {
         Equipment eq = equipmentRepository.findById(id)

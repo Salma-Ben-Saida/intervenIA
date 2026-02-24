@@ -18,7 +18,10 @@ import {
   Search,
   ArrowLeft,
   Loader2,
+  LogOut
 } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { getAuth, clearAuth } from "@/lib/auth"
 
 const API_BASE = "http://localhost:8080/api/equipments"
 
@@ -78,7 +81,67 @@ const EQUIPMENT_TYPES: EquipmentType[] = [
 
 const ZONES = ["NORTH", "SOUTH", "CENTER"]
 
+// Maps each speciality to the equipment names it uses (from EquipmentRegistry)
+const SPECIALITY_EQUIPMENT: Record<string, string[]> = {
+  ELECTRICITY: [
+    "INSULATED_GLOVES", "INSULATED_TOOLS", "MULTIMETER", "VOLTAGE_DETECTOR",
+    "PORTABLE_GENERATOR", "HYDRAULIC_LIFT_TRUCK", "ELECTRICAL_TOOLKIT", "THERMAL_CAMERA"
+  ],
+  GAZ: [
+    "PROTECTIVE_GEAR", "GAS_LEAK_DETECTOR", "NON_SPARKING_TOOLS",
+    "PIPE_WELDING_MACHINE", "GAS_DETECTION_METER", "MANOMETER"
+  ],
+  FIRE_SAFETY: [
+    "PROTECTIVE_GEAR", "FIRST_AID_KIT",
+    "THERMAL_CAMERA", "HYDRANT_FLOW_METER", "FIRE_PUMP_PRESSURE_TEST_KIT"
+  ],
+  PUBLIC_LIGHTING: [
+    "PROTECTIVE_GLOVES", "LUX_METER",
+    "LADDER", "LED_DRIVERS", "SPARE_LAMPS"
+  ],
+  ROADS: [
+    "PROTECTIVE_GLOVES",
+    "ASPHALT_CUTTER", "COMPACTOR_PLATE", "TRAFFIC_CONES", "ROAD_BARRIERS"
+  ],
+  SANITATION: [
+    "PROTECTIVE_BOOT_AND_GEAR",
+    "DRAIN_INSPECTION_CAMERA", "HIGH_PRESSURE_JET", "SLUDGE_PUMP", "MANHOLE_LIFTER"
+  ],
+  TELECOMMUNICATION_IOT: [
+    "INCIDENT_TABLET", "COMMUNICATION_RADIO",
+    "OTDR", "FIBER_FUSION_SPLICER", "IOT_GATEWAY_CONFIGURATOR"
+  ],
+  EMERGENCY: [
+    "FIRST_AID_KIT", "COMMUNICATION_RADIO",
+    "PORTABLE_LIGHTING", "POWER_BANK"
+  ],
+  TRAFFIC_SIGNALS: [
+    "LOOP_DETECTOR_TESTER", "TRAFFIC_CONTROLLER_DIAGNOSTIC_TOOL",
+    "PORTABLE_TRAFFIC_LIGHTS", "SIGNAL_HEAD_LIFTING_POLE",
+    "UPS_BATTERY_TESTER", "OSCILLOSCOPE", "CONTROLLER_SPARE_MODULES", "ELECTRICAL_TOOLKIT"
+  ],
+  ENVIRONMENT: [
+    "BRUSH_CUTTER", "LEAF_BLOWER", "TREE_PRUNING_TOOL", "PRESSURE_SPRAYER",
+    "WASTE_CONTAINER_RFID_READER", "NOISE_LEVEL_METER",
+    "SOIL_MOISTURE_SENSOR", "PROTECTIVE_GLOVES"
+  ],
+}
+
 export default function ManagerEquipmentPage() {
+  const router = useRouter()
+  const auth   = getAuth()
+
+  useEffect(() => {
+    if (!auth) router.push("/login")
+  }, [])
+
+  const token       = auth?.token       ?? ""
+  const managerZone = auth?.zone        ?? ""   // you'll need to store zone at login
+  const speciality  = auth?.speciality  ?? ""   // you'll need to store speciality at login
+
+  const h = { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
+
+
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedZone, setSelectedZone] = useState("all")
   const [showAddForm, setShowAddForm] = useState(false)
@@ -105,10 +168,19 @@ export default function ManagerEquipmentPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(API_BASE)
+      // Fetch only equipment from the manager's zone
+      const res = await fetch(`${API_BASE}/zone/${managerZone}`, { headers: h })
+      if (res.status === 401) { clearAuth(); router.push("/login"); return }
       if (!res.ok) throw new Error("Failed to fetch equipment")
       const data: EquipmentDTO[] = await res.json()
-      setEquipmentList(data)
+
+      // Filter client-side by speciality equipment names
+      const allowedNames = SPECIALITY_EQUIPMENT[speciality] ?? []
+      const filtered = allowedNames.length > 0
+          ? data.filter(eq => allowedNames.includes(eq.equipmentName))
+          : data
+
+      setEquipmentList(filtered)
     } catch (e: any) {
       setError(e.message || "Unknown error")
     } finally {
@@ -128,9 +200,10 @@ export default function ManagerEquipmentPage() {
     try {
       const res = await fetch(API_BASE, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: h,
         body: JSON.stringify(newEquipment),
       })
+      if (res.status === 401) { clearAuth(); router.push("/login"); return }
       if (!res.ok) {
         const msg = await res.text()
         throw new Error(msg || "Failed to create equipment")
@@ -159,7 +232,8 @@ export default function ManagerEquipmentPage() {
   const handleDeleteEquipment = async (id: string) => {
     if (!confirm("Are you sure you want to delete this equipment?")) return
     try {
-      const res = await fetch(`${API_BASE}/${id}`, { method: "DELETE" })
+      const res = await fetch(`${API_BASE}/${id}`, { method: "DELETE" , headers: h})
+      if (res.status === 401) { clearAuth(); router.push("/login"); return }
       if (!res.ok) throw new Error("Failed to delete equipment")
       setEquipmentList((prev) => prev.filter((eq) => eq.id !== id))
     } catch (e: any) {
@@ -174,8 +248,9 @@ export default function ManagerEquipmentPage() {
     setSaving(true)
     try {
       const res = await fetch(`${API_BASE}/${equipment.id}/status?status=${equipment.status}`, {
-        method: "PUT",
+        method: "PUT", headers: h
       })
+      if (res.status === 401) { clearAuth(); router.push("/login"); return }
       if (!res.ok) throw new Error("Failed to update status")
       const updated: EquipmentDTO = await res.json()
       setEquipmentList((prev) => prev.map((eq) => (eq.id === updated.id ? updated : eq)))
@@ -248,6 +323,13 @@ export default function ManagerEquipmentPage() {
               </button>
               <button className="p-2 hover:bg-muted/50 rounded-lg transition-colors">
                 <Menu className="w-5 h-5" />
+              </button>
+              <button
+                  onClick={() => { clearAuth(); router.push("/login") }}
+                  className="p-2 hover:bg-red-400/10 rounded-lg transition-colors text-muted-foreground hover:text-red-400"
+                  title="Logout"
+              >
+                <LogOut className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -331,16 +413,6 @@ export default function ManagerEquipmentPage() {
               />
             </div>
 
-            <select
-                value={selectedZone}
-                onChange={(e) => setSelectedZone(e.target.value)}
-                className="px-4 py-2 bg-background/50 border border-neon-cyan/20 focus:border-neon-cyan/50 rounded-lg text-foreground"
-            >
-              <option value="all">All Zones</option>
-              {ZONES.map((zone) => (
-                  <option key={zone} value={zone}>{zone}</option>
-              ))}
-            </select>
           </div>
 
           {/* Add Equipment Form */}
@@ -400,9 +472,7 @@ export default function ManagerEquipmentPage() {
                         onChange={(e) => setNewEquipment({ ...newEquipment, zone: e.target.value })}
                         className="w-full px-4 py-2 bg-background border border-neon-cyan/30 rounded-lg text-foreground focus:border-neon-cyan/60 focus:outline-none"
                     >
-                      {ZONES.map((zone) => (
-                          <option key={zone} value={zone}>{zone}</option>
-                      ))}
+
                     </select>
                   </div>
                 </div>
