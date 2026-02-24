@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button"
 import { InterveniaLogo } from "@/components/intervenia-logo"
 import {
   Menu, Bell, Users, ArrowLeft, Search, Plus, Edit, Trash2,
-  AlertCircle, Loader2, Shield, Wrench, User, Filter,
-  ChevronDown, ChevronUp, ChevronRight, UserMinus, MapPin, Star
+  AlertCircle, Loader2, Wrench, User, Filter,
+  ChevronDown, ChevronUp, ChevronRight, UserMinus, MapPin, Star, LogOut
 } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { getAuth, clearAuth } from "@/lib/auth"
+
 
 const API_USERS = "http://localhost:8080/api/users"
 const API_TEAMS = "http://localhost:8080/api/teams"
@@ -45,7 +48,6 @@ interface UserDTO {
   onCall: boolean
 }
 
-const ROLES: Role[] = ["CITIZEN", "TECHNICIAN", "LEADER", "MANAGER", "ADMIN", "SUPER_ADMIN"]
 // Manager can only manage technicians and leaders
 const MANAGEABLE_ROLES: Role[] = ["TECHNICIAN", "LEADER"]
 const SPECIALITIES: ProfessionalSpeciality[] = [
@@ -79,6 +81,18 @@ const getRoleIcon = (role: Role) => {
 }
 
 export default function ManagerUsersPage() {
+  const router = useRouter()
+  const auth   = getAuth()
+
+  useEffect(() => {
+    if (!auth) router.push("/login")
+  }, [])
+
+  const token  = auth?.token  ?? ""
+
+  const h = { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
+
+
   const [activeTab, setActiveTab] = useState<"users" | "teams">("users")
 
   // USERS STATE
@@ -142,10 +156,12 @@ export default function ManagerUsersPage() {
     setLeaderEmailSearching(true)
     const handle = setTimeout(async () => {
       try {
-        const res = await fetch(`${API_USERS}/email/contains/${encodeURIComponent(q)}`)
-        if (!res.ok) throw new Error("Search failed")
+        const res = await fetch(`${API_USERS}/email/contains/${encodeURIComponent(q)}`, {headers: h})
+        if (res.status === 401) { clearAuth(); router.push("/login"); return }
+        if (!res.ok) throw new Error(await res.text())
+
         const list: UserDTO[] = await res.json()
-        // Managers can only target leaders for leader email filter
+        // Managers can only target leaders for the leader email filter
         const leaderList = list.filter(u => u.role === "LEADER")
         const ids = new Set(leaderList.map(u => u.id))
         setLeaderEmailMatchedIds(ids)
@@ -169,8 +185,10 @@ export default function ManagerUsersPage() {
     setUserError(null)
     const handle = setTimeout(async () => {
       try {
-        const res = await fetch(`${API_USERS}/email/contains/${encodeURIComponent(q)}`)
-        if (!res.ok) throw new Error("Search failed")
+        const res = await fetch(`${API_USERS}/email/contains/${encodeURIComponent(q)}`, {headers: h})
+        if (res.status === 401) { clearAuth(); router.push("/login"); return }
+        if (!res.ok) throw new Error(await res.text())
+
         let list: UserDTO[] = await res.json()
         // Manager can only fetch leaders and technicians
         list = list.filter(u => MANAGEABLE_ROLES.includes(u.role))
@@ -191,8 +209,8 @@ export default function ManagerUsersPage() {
     setLoadingTeams(true)
     setTeamError(null)
     try {
-      const res = await fetch(API_TEAMS)
-      if (!res.ok) throw new Error("Failed to fetch teams")
+      const res = await fetch(API_TEAMS, {headers: h})
+
       const list: Team[] = await res.json()
       setTeams(list)
       // Batch fetch leader usernames
@@ -200,9 +218,10 @@ export default function ManagerUsersPage() {
       if (uniqueLeaderIds.length > 0) {
         const results = await Promise.all(uniqueLeaderIds.map(async (id) => {
           try {
-            const r = await fetch(`${API_USERS}/${id}`)
-            if (!r.ok) throw new Error("not found")
-            const u: UserDTO = await r.json()
+            const res = await fetch(`${API_USERS}/${id}`, {headers: h})
+            if (res.status === 401) { clearAuth(); router.push("/login"); return }
+            if (!res.ok) throw new Error(await res.text())
+            const u: UserDTO = await res.json()
             return [id, u.username] as const
           } catch {
             return [id, undefined] as const
@@ -229,8 +248,10 @@ export default function ManagerUsersPage() {
     if (teamMembers[team.id]) return
     setLoadingMembers(team.id)
     try {
-      const res = await fetch(`${API_USERS}/team/${team.id}`)
-      if (!res.ok) throw new Error("Failed to fetch members")
+      const res = await fetch(`${API_USERS}/team/${team.id}`, {headers: h})
+      if (res.status === 401) { clearAuth(); router.push("/login"); return }
+      if (!res.ok) throw new Error(await res.text())
+
       const members = await res.json()
       setTeamMembers(prev => ({ ...prev, [team.id]: members }))
     } catch {
@@ -281,15 +302,17 @@ export default function ManagerUsersPage() {
     try {
       let fetched: UserDTO[] = []
       if (filterSpeciality) {
-        const res = await fetch(`${API_USERS}/speciality/${filterSpeciality}`)
-        if (!res.ok) throw new Error("Search failed")
+        const res = await fetch(`${API_USERS}/speciality/${filterSpeciality}`, {headers: h})
+        if (res.status === 401) { clearAuth(); router.push("/login"); return }
+        if (!res.ok) throw new Error(await res.text())
         fetched = await res.json()
         // Only allow leaders and technicians for manager
         fetched = fetched.filter(u => MANAGEABLE_ROLES.includes(u.role))
         if (filterRole) fetched = fetched.filter(u => u.role === filterRole)
       } else if (filterRole) {
-        const res = await fetch(`${API_USERS}/role/${filterRole}`)
-        if (!res.ok) throw new Error("Search failed")
+        const res = await fetch(`${API_USERS}/role/${filterRole}`, {headers: h})
+        if (res.status === 401) { clearAuth(); router.push("/login"); return }
+        if (!res.ok) throw new Error(await res.text())
         fetched = await res.json()
         // Only allow leaders and technicians for manager
         fetched = fetched.filter(u => MANAGEABLE_ROLES.includes(u.role))
@@ -312,9 +335,10 @@ export default function ManagerUsersPage() {
     setSavingUser(true)
     try {
       const res = await fetch(API_USERS, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", headers: h ,
         body: JSON.stringify(newUser),
       })
+      if (res.status === 401) { clearAuth(); router.push("/login"); return }
       if (!res.ok) throw new Error(await res.text())
       const created: UserDTO = await res.json()
       setUsers(prev => [created, ...prev])
@@ -328,10 +352,12 @@ export default function ManagerUsersPage() {
     setSavingUser(true)
     try {
       const res = await fetch(`${API_USERS}/${id}`, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
+        method: "PUT", headers: h,
         body: JSON.stringify(editUserData),
       })
+      if (res.status === 401) { clearAuth(); router.push("/login"); return }
       if (!res.ok) throw new Error(await res.text())
+
       const updated: UserDTO = await res.json()
       setUsers(prev => prev.map(u => u.id === id ? updated : u))
       setEditingUserId(null)
@@ -342,8 +368,10 @@ export default function ManagerUsersPage() {
   const handleDeleteUser = async (id: string) => {
     if (!confirm("Delete this user?")) return
     try {
-      const res = await fetch(`${API_USERS}/${id}`, { method: "DELETE" })
-      if (!res.ok) throw new Error("Failed")
+      const res = await fetch(`${API_USERS}/${id}`, { method: "DELETE", headers: h})
+      if (res.status === 401) { clearAuth(); router.push("/login"); return }
+      if (!res.ok) throw new Error(await res.text())
+
       setUsers(prev => prev.filter(u => u.id !== id))
     } catch (e: any) { alert("Error: " + e.message) }
   }
@@ -352,10 +380,12 @@ export default function ManagerUsersPage() {
     setSavingTeam(true)
     try {
       const res = await fetch(API_TEAMS, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", headers: h,
         body: JSON.stringify(newTeam),
       })
+      if (res.status === 401) { clearAuth(); router.push("/login"); return }
       if (!res.ok) throw new Error(await res.text())
+
       const created: Team = await res.json()
       setTeams(prev => [created, ...prev])
       setShowAddTeam(false)
@@ -368,8 +398,10 @@ export default function ManagerUsersPage() {
   const handleDeleteTeam = async (id: string) => {
     if (!confirm("Delete this team? Members will be unassigned.")) return
     try {
-      const res = await fetch(`${API_TEAMS}/${id}`, { method: "DELETE" })
-      if (!res.ok) throw new Error("Failed")
+      const res = await fetch(`${API_TEAMS}/${id}`, { method: "DELETE" , headers: h})
+      if (res.status === 401) { clearAuth(); router.push("/login"); return }
+      if (!res.ok) throw new Error(await res.text())
+
       setTeams(prev => prev.filter(t => t.id !== id))
       if (expandedTeam === id) setExpandedTeam(null)
     } catch (e: any) { alert("Error: " + e.message) }
@@ -378,8 +410,10 @@ export default function ManagerUsersPage() {
   const handleUpdateTeamZone = async (teamId: string) => {
     setSavingTeam(true)
     try {
-      const res = await fetch(`${API_TEAMS}/${teamId}/zone?zone=${editTeamZone}`, { method: "PUT" })
+      const res = await fetch(`${API_TEAMS}/${teamId}/zone?zone=${editTeamZone}`, { method: "PUT" , headers: h})
+      if (res.status === 401) { clearAuth(); router.push("/login"); return }
       if (!res.ok) throw new Error(await res.text())
+
       const updated: Team = await res.json()
       setTeams(prev => prev.map(t => t.id === teamId ? updated : t))
       setEditingTeamId(null)
@@ -390,8 +424,10 @@ export default function ManagerUsersPage() {
   const handleRemoveTechnician = async (teamId: string, techId: string) => {
     if (!confirm("Remove this technician from the team?")) return
     try {
-      const res = await fetch(`${API_TEAMS}/${teamId}/remove-technician/${techId}`, { method: "DELETE" })
-      if (!res.ok) throw new Error("Failed")
+      const res = await fetch(`${API_TEAMS}/${teamId}/remove-technician/${techId}`, { method: "DELETE" , headers: h})
+      if (res.status === 401) { clearAuth(); router.push("/login"); return }
+      if (!res.ok) throw new Error(await res.text())
+
       setTeamMembers(prev => ({ ...prev, [teamId]: (prev[teamId] ?? []).filter(m => m.id !== techId) }))
       setTeams(prev => prev.map(t =>
           t.id === teamId ? { ...t, technicianIds: t.technicianIds.filter(id => id !== techId) } : t
@@ -436,6 +472,13 @@ export default function ManagerUsersPage() {
             <div className="flex items-center gap-4">
               <button className="p-2 hover:bg-muted/50 rounded-lg transition-colors"><Bell className="w-5 h-5" /></button>
               <button className="p-2 hover:bg-muted/50 rounded-lg transition-colors"><Menu className="w-5 h-5" /></button>
+              <button
+                  onClick={() => { clearAuth(); router.push("/login") }}
+                  className="p-2 hover:bg-red-400/10 rounded-lg transition-colors text-muted-foreground hover:text-red-400"
+                  title="Logout"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </nav>

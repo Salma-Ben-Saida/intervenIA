@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ArrowRight, Mail, Lock } from "lucide-react"
 import { InterveniaLogo } from "@/components/intervenia-logo"
+import { saveAuth } from "@/lib/auth"
 
 // Backend roles
 type BackendRole = "CITIZEN" | "TECHNICIAN" | "LEADER" | "MANAGER" | "ADMIN"
@@ -84,10 +85,14 @@ export default function AuthPage() {
       console.log("Login successful:", data);
 
       // Store authentication data
-      localStorage.setItem("token", data.token)
-      localStorage.setItem("role", data.role)
-      localStorage.setItem("userId", data.userId || "")
-      localStorage.setItem("userEmail", email)
+      saveAuth({
+        token:    data.token,
+        userId:   data.userId,
+        role:     data.role,
+        username: data.username,
+        zone:       data.zone,
+        speciality: data.speciality,
+      })
 
       // Redirect based on backend role
       const route = roleRoutes[data.role as BackendRole]

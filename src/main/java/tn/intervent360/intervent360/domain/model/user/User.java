@@ -10,6 +10,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import tn.intervent360.intervent360.domain.model.Zone;
 import tn.intervent360.intervent360.domain.model.team.ProfessionalSpeciality;
 
+import java.nio.charset.Charset;
 import java.util.UUID;
 
 @Document(collection = "users")
@@ -99,5 +100,7 @@ public class User {
             this.isAvailable = available;
         }
     }
+
+
 }
 

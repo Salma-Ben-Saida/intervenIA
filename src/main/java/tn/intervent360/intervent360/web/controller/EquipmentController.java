@@ -94,6 +94,11 @@ public class EquipmentController {
         return ResponseEntity.ok(equipmentService.updateZone(id, zone));
     }
 
+    @GetMapping("/zone/{zone}")
+    public ResponseEntity<List<EquipmentDTO>> findByZone(@PathVariable Zone zone) {
+        return ResponseEntity.ok(equipmentService.findByZone(zone));
+    }
+
     // ============================
     // DELETE
     // ============================
@@ -102,5 +107,6 @@ public class EquipmentController {
         equipmentService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
 }
 
