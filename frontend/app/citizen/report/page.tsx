@@ -7,13 +7,15 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import MapPicker from "@/components/MapPicker"
 import { InterveniaLogo } from "@/components/intervenia-logo"
 import {
   ArrowLeft, Camera, Upload, MapPin, Sparkles, List,
   CheckCircle, X, Loader2, AlertCircle, Info
 } from "lucide-react"
+import { getAuth } from "@/lib/auth"
 
-// Define types based on your DTOs
+
 interface Location {
   lat: number;
   lng: number;
@@ -155,11 +157,10 @@ export default function ReportIncident() {
 
   // Get citizen ID from localStorage on component mount
   useEffect(() => {
-    const userId = localStorage.getItem("userId");
-    const userRole = localStorage.getItem("role");
+    const auth = getAuth();
 
-    if (userId && userRole === "CITIZEN") {
-      setCitizenId(userId);
+    if (auth && auth.role === "CITIZEN") {
+      setCitizenId(auth.userId);
     } else {
       // Redirect if not citizen
       window.location.href = "/auth";
@@ -178,23 +179,47 @@ export default function ReportIncident() {
   }
 
   const handleUseLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const newLocation = {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-              address: ""
-            };
-            setLocation(newLocation)
-            setAddress(`${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`)
-          },
-          (error) => {
-            console.error("Error getting location:", error)
-            alert("Unable to get your location. Please enter address manually.")
-          },
-      )
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.")
+      return
     }
+
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const newLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            address: ""
+          }
+
+          setLocation(newLocation)
+          setAddress(
+              `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`
+          )
+        },
+        (error) => {
+          console.error("Error getting location:", error)
+
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              alert("You denied location access. Please enable it in your browser settings.")
+              break
+            case error.POSITION_UNAVAILABLE:
+              alert("Location unavailable. Check your internet or GPS.")
+              break
+            case error.TIMEOUT:
+              alert("Location request timed out. Try again.")
+              break
+            default:
+              alert("Unexpected error getting location.")
+          }
+        },
+        {
+          enableHighAccuracy: true, // better precision
+          timeout: 10000,          // don't wait forever
+          maximumAge: 0            // no cached location
+        }
+    )
   }
 
   const handleAIClassification = async () => {
@@ -219,7 +244,7 @@ export default function ReportIncident() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
+          "Authorization": `Bearer ${getAuth()?.token}`
         },
         body: JSON.stringify(aiRequest)
       });
@@ -332,7 +357,7 @@ export default function ReportIncident() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
+          "Authorization": `Bearer ${getAuth()?.token}`
         },
         body: JSON.stringify(createRequest)
       });
@@ -559,26 +584,25 @@ export default function ReportIncident() {
               <span className="text-red-400">*</span>
             </h2>
             <div className="space-y-4">
-              <div className="w-full h-64 bg-muted/20 rounded-lg border border-neon-cyan/20 flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(34,211,238,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(34,211,238,0.05)_1px,transparent_1px)] bg-[size:30px_30px]"></div>
-                <div className="relative z-10 text-center">
-                  <MapPin className="w-12 h-12 text-neon-cyan mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground mb-1">Location will be sent with your report</p>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    {location.lat !== 0 && location.lng !== 0
-                        ? `Lat: ${location.lat.toFixed(6)}, Lng: ${location.lng.toFixed(6)}`
-                        : "Location not set"}
-                  </p>
-                  <Button
-                      onClick={handleUseLocation}
-                      variant="outline"
-                      size="sm"
-                      disabled={isSubmitting}
-                      className="border-neon-cyan/30 hover:border-neon-cyan/60 hover:bg-neon-cyan/5 bg-transparent"
-                  >
-                    <MapPin className="w-4 h-4 mr-2" />
-                    Use My Current Location
-                  </Button>
+              <div className="w-full rounded-lg border border-neon-cyan/20 relative overflow-hidden">
+                <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(to_right,rgba(34,211,238,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(34,211,238,0.05)_1px,transparent_1px)] bg-[size:30px_30px]"></div>
+                <div className="relative z-10 p-2">
+                  <label className="block text-sm font-medium mb-2 text-muted-foreground">
+                    Click on the map to select your location
+                  </label>
+                  <MapPicker
+                    value={location.lat && location.lng ? { lat: location.lat, lng: location.lng } : null}
+                    onChange={(lat, lng, addr) => {
+                      setLocation({ lat, lng, address: "" })
+                      setAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`)
+                    }}
+                    enableReverseGeocoding={true}
+                    showConfirmButton={true}
+                    onConfirm={(lat, lng, addr) => {
+                      setLocation({ lat, lng, address: addr || "" })
+                      setAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`)
+                    }}
+                  />
                 </div>
               </div>
 

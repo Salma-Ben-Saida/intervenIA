@@ -86,13 +86,16 @@ export default function AuthPage() {
 
       // Store authentication data
       saveAuth({
-        token:    data.token,
-        userId:   data.userId,
-        role:     data.role,
+        token: data.token,
+        userId: data.userId,
+        role: data.role,
         username: data.username,
-        zone:       data.zone,
+        zone: data.zone,
         speciality: data.speciality,
+        managedZone: "",
+        managedSpeciality: ""
       })
+      localStorage.setItem("userId", data.userId)
 
       // Redirect based on backend role
       const route = roleRoutes[data.role as BackendRole]

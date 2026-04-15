@@ -1,6 +1,7 @@
 import InterventionDashboard from "@/components/intervention-dashboard"
+import type { Metadata } from "next"
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Intervention Dashboard - IntervenIA",
   description: "Real-time intervention planning, scheduling, and technician assignment dashboard",
 }

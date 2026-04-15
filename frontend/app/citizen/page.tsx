@@ -3,62 +3,102 @@
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { InterveniaLogo } from "@/components/intervenia-logo"
-import { Bell, MapPin, Clock, AlertTriangle, CheckCircle, Camera, Menu, Settings, MessageSquare } from "lucide-react"
+import { Bell, MapPin, Clock, AlertTriangle, CheckCircle, Camera, Menu, Settings, MessageSquare, RefreshCw } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { getAuth } from "@/lib/auth"
+
+// Types matching backend IncidentDTO (subset)
+interface IncidentDTO {
+  id: string
+  name?: string
+  description?: string
+  submittedAt?: string | number | Date
+  incidentStatus?: string
+  urgencyLevel?: string
+  location?: { address?: string; lat?: number; lng?: number }
+  zone?: string
+}
 
 export default function CitizenDashboard() {
-  // Sample recent incidents data
-  const recentIncidents = [
-    {
-      id: 1,
-      title: "Broken Street Light",
-      status: "in-progress",
-      urgency: "medium",
-      location: "Main St & 5th Ave",
-      reportedAt: "2 hours ago",
-    },
-    {
-      id: 2,
-      title: "Pothole on Highway",
-      status: "completed",
-      urgency: "high",
-      location: "Highway 101, Exit 42",
-      reportedAt: "1 day ago",
-    },
-    {
-      id: 3,
-      title: "Graffiti on Public Wall",
-      status: "pending",
-      urgency: "low",
-      location: "Park Avenue",
-      reportedAt: "3 days ago",
-    },
-  ]
+  const [incidents, setIncidents] = useState<IncidentDTO[]>([])
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "completed":
-        return "text-green-400 border-green-400/30 bg-green-400/10"
-      case "in-progress":
-        return "text-neon-blue border-neon-blue/30 bg-neon-blue/10"
-      case "pending":
-        return "text-yellow-400 border-yellow-400/30 bg-yellow-400/10"
-      default:
-        return "text-muted-foreground border-border/30 bg-muted/10"
+  const auth = getAuth()
+  const userId = auth?.userId
+  const token = auth?.token
+
+  const fetchIncidents = async () => {
+    if (!userId || !token) {
+      setError("You must be logged in as a citizen to view your incidents.")
+      setLoading(false)
+      return
+    }
+    try {
+      setLoading(true)
+      setError(null)
+      const res = await fetch(`http://localhost:8080/api/incidents/citizen/${userId}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/json",
+        },
+      })
+      if (!res.ok) {
+        const msg = await res.text().catch(() => "Failed to load incidents")
+        throw new Error(msg || `Request failed with ${res.status}`)
+      }
+      const data: IncidentDTO[] = await res.json()
+      setIncidents(Array.isArray(data) ? data : [])
+    } catch (e: any) {
+      setError(e?.message || "Failed to load incidents")
+    } finally {
+      setLoading(false)
     }
   }
 
-  const getUrgencyColor = (urgency: string) => {
-    switch (urgency) {
-      case "critical":
-        return "text-red-400"
-      case "high":
-        return "text-orange-400"
-      case "medium":
-        return "text-yellow-400"
-      case "low":
-        return "text-green-400"
-      default:
-        return "text-muted-foreground"
+  useEffect(() => {
+    fetchIncidents()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const stats = useMemo(() => {
+    const up = (s?: string) => (s || "").toUpperCase()
+    const total = incidents.length
+    const inProgress = incidents.filter(i => ["IN_PROGRESS"].includes(up(i.incidentStatus))).length
+    const resolved = incidents.filter(i => ["CLOSED", "RESOLVED"].includes(up(i.incidentStatus))).length
+    return { total, inProgress, resolved }
+  }, [incidents])
+
+  const fmtStatusClass = (status?: string) => {
+    const s = (status || "").toUpperCase()
+    if (["CLOSED", "RESOLVED"].includes(s)) return "text-green-400 border-green-400/30 bg-green-400/10"
+    if (["IN_PROGRESS"].includes(s)) return "text-neon-blue border-neon-blue/30 bg-neon-blue/10"
+    if (["OPEN", "PENDING"].includes(s)) return "text-yellow-400 border-yellow-400/30 bg-yellow-400/10"
+    return "text-muted-foreground border-border/30 bg-muted/10"
+  }
+
+  const fmtUrgencyClass = (urgency?: string) => {
+    const u = (urgency || "").toUpperCase()
+    if (u === "CRITICAL") return "text-red-400"
+    if (u === "HIGH") return "text-orange-400"
+    if (u === "MEDIUM") return "text-yellow-400"
+    if (u === "LOW") return "text-green-400"
+    return "text-muted-foreground"
+  }
+
+  const fmtTitle = (inc: IncidentDTO) => {
+    // Prefer enum name if present; prettify by replacing underscores
+    const raw = inc.name || "Incident"
+    return raw.toString().replace(/_/g, " ")
+  }
+
+  const fmtWhen = (d?: string | number | Date) => {
+    if (!d) return ""
+    try {
+      const date = new Date(d)
+      return date.toLocaleString()
+    } catch {
+      return String(d)
     }
   }
 
@@ -121,7 +161,7 @@ export default function CitizenDashboard() {
               <span className="text-sm text-muted-foreground">Your Reports</span>
               <Camera className="w-5 h-5 text-neon-cyan" />
             </div>
-            <p className="text-3xl font-bold">12</p>
+            <p className="text-3xl font-bold">{loading ? "–" : stats.total}</p>
             <p className="text-xs text-muted-foreground mt-1">Total incidents reported</p>
           </Card>
 
@@ -130,7 +170,7 @@ export default function CitizenDashboard() {
               <span className="text-sm text-muted-foreground">In Progress</span>
               <Clock className="w-5 h-5 text-neon-blue" />
             </div>
-            <p className="text-3xl font-bold">3</p>
+            <p className="text-3xl font-bold">{loading ? "–" : stats.inProgress}</p>
             <p className="text-xs text-muted-foreground mt-1">Being addressed</p>
           </Card>
 
@@ -139,7 +179,7 @@ export default function CitizenDashboard() {
               <span className="text-sm text-muted-foreground">Resolved</span>
               <CheckCircle className="w-5 h-5 text-green-400" />
             </div>
-            <p className="text-3xl font-bold">9</p>
+            <p className="text-3xl font-bold">{loading ? "–" : stats.resolved}</p>
             <p className="text-xs text-muted-foreground mt-1">Successfully completed</p>
           </Card>
         </div>
@@ -163,41 +203,90 @@ export default function CitizenDashboard() {
         {/* Recent Incidents */}
         <div>
           <h2 className="text-2xl font-bold mb-6">Your Recent Reports</h2>
-          <div className="space-y-4">
-            {recentIncidents.map((incident) => (
-              <Card
-                key={incident.id}
-                className="p-6 bg-gradient-to-br from-card to-card/50 border-border/20 hover:border-neon-cyan/30 transition-all duration-300"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold text-lg">{incident.title}</h3>
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full border ${getStatusColor(incident.status)} capitalize`}
-                      >
-                        {incident.status.replace("-", " ")}
-                      </span>
+
+          {/* Loading State */}
+          {loading && (
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i} className="p-6 border-border/20">
+                  <div className="animate-pulse space-y-3">
+                    <div className="h-5 bg-muted rounded w-1/3"></div>
+                    <div className="flex gap-6">
+                      <div className="h-4 bg-muted rounded w-40"></div>
+                      <div className="h-4 bg-muted rounded w-28"></div>
+                      <div className="h-4 bg-muted rounded w-32"></div>
                     </div>
-                    <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4" />
-                        <span>{incident.location}</span>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Error State */}
+          {!loading && error && (
+            <Card className="p-6 border-red-500/30 bg-red-500/5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-red-400 font-medium">Failed to load your incidents</p>
+                  <p className="text-sm text-muted-foreground mt-1">{error}</p>
+                </div>
+                <button
+                  onClick={fetchIncidents}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:bg-muted/50 transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4" /> Retry
+                </button>
+              </div>
+            </Card>
+          )}
+
+          {/* Empty State */}
+          {!loading && !error && incidents.length === 0 && (
+            <Card className="p-8 text-center border-border/20">
+              <p className="text-muted-foreground">You haven't reported any incidents yet.</p>
+              <p className="text-sm text-muted-foreground mt-1">Start by creating your first report.</p>
+            </Card>
+          )}
+
+          {/* List */}
+          {!loading && !error && incidents.length > 0 && (
+            <div className="space-y-4">
+              {incidents.map((incident) => (
+                <Card
+                  key={incident.id}
+                  className="p-6 bg-gradient-to-br from-card to-card/50 border-border/20 hover:border-neon-cyan/30 transition-all duration-300"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="font-semibold text-lg">{fmtTitle(incident)}</h3>
+                        <span className={`text-xs px-2 py-1 rounded-full border ${fmtStatusClass(incident.incidentStatus)} capitalize`}>
+                          {(incident.incidentStatus || "").toString().replace(/_/g, " ")}
+                        </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4" />
-                        <span>{incident.reportedAt}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className={`w-4 h-4 ${getUrgencyColor(incident.urgency)}`} />
-                        <span className={getUrgencyColor(incident.urgency)}>{incident.urgency} priority</span>
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{incident.description}</p>
+                      <div className="flex items-center gap-6 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4" />
+                          <span>{incident.location?.address || incident.zone || "Unknown location"}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4" />
+                          <span>{fmtWhen(incident.submittedAt)}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className={`w-4 h-4 ${fmtUrgencyClass(incident.urgencyLevel)}`} />
+                          <span className={fmtUrgencyClass(incident.urgencyLevel)}>
+                            {(incident.urgencyLevel || "").toString().toLowerCase() || "unknown"} priority
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </Card>
-            ))}
-          </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </main>
     </div>

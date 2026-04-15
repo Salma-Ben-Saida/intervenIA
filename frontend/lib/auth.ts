@@ -1,4 +1,6 @@
 export type AuthUser = {
+    managedZone: string;
+    managedSpeciality: string
     userId: string
     role: string
     username: string

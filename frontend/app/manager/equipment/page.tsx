@@ -71,7 +71,7 @@ const EQUIPMENT_NAMES: EquipmentName[] = [
   "MULTIMETER", "FIRST_AID_KIT", "PORTABLE_LIGHTING", "COMMUNICATION_RADIO",
   "INCIDENT_TABLET", "POWER_BANK", "CAUTION_TAPE", "BASIC_TOOLKIT", "BRUSH_CUTTER",
   "LEAF_BLOWER", "LADDER", "HARNESS", "TRAFFIC_CONES", "ROAD_BARRIERS", "GPS_DEVICE",
-  "ELECTRICAL_TOOLKIT", "MULTIMETER", "PROTECTIVE_GEAR", "PROTECTIVE_GLOVES"
+  "ELECTRICAL_TOOLKIT", "PROTECTIVE_GEAR", "PROTECTIVE_GLOVES"
 ]
 
 const EQUIPMENT_TYPES: EquipmentType[] = [
@@ -143,7 +143,8 @@ export default function ManagerEquipmentPage() {
 
 
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedZone, setSelectedZone] = useState("all")
+  // Zone is strictly locked to the manager's zone
+  const [selectedZone, setSelectedZone] = useState(managerZone)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingEquipment, setEditingEquipment] = useState<string | null>(null)
   const [equipmentList, setEquipmentList] = useState<EquipmentDTO[]>([])
@@ -158,7 +159,7 @@ export default function ManagerEquipmentPage() {
     equipmentType: "TECHNICAL_TOOLS",
     status: "OPERATIONAL",
     model: "",
-    zone: "NORTH",
+    zone: managerZone,
   })
 
   // =====================
@@ -198,10 +199,11 @@ export default function ManagerEquipmentPage() {
   const handleAddEquipment = async () => {
     setSaving(true)
     try {
+      const payload = { ...newEquipment, zone: managerZone } as Partial<EquipmentDTO>
       const res = await fetch(API_BASE, {
         method: "POST",
         headers: h,
-        body: JSON.stringify(newEquipment),
+        body: JSON.stringify(payload),
       })
       if (res.status === 401) { clearAuth(); router.push("/login"); return }
       if (!res.ok) {
@@ -348,7 +350,7 @@ export default function ManagerEquipmentPage() {
               </Button>
             </Link>
             <h1 className="text-4xl font-bold mb-3 tracking-tight text-balance">Equipment Management</h1>
-            <p className="text-muted-foreground text-lg">Manage all equipment across all zones</p>
+            <p className="text-muted-foreground text-lg">Manage equipment in your zone</p>
           </div>
 
           {/* Equipment Stats */}
@@ -359,7 +361,7 @@ export default function ManagerEquipmentPage() {
                 <Package className="w-5 h-5 text-neon-cyan" />
               </div>
               <p className="text-3xl font-bold">{totalEquipment}</p>
-              <p className="text-xs text-muted-foreground mt-1">Across all zones</p>
+              <p className="text-xs text-muted-foreground mt-1">In your zone</p>
             </Card>
 
             <Card className="p-6 bg-gradient-to-br from-neon-cyan/5 to-neon-blue/5 border-neon-cyan/15">
@@ -463,16 +465,6 @@ export default function ManagerEquipmentPage() {
                       {EQUIPMENT_TYPES.map((type) => (
                           <option key={type} value={type}>{type.replace(/_/g, " ")}</option>
                       ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm text-muted-foreground mb-2">Zone</label>
-                    <select
-                        value={newEquipment.zone}
-                        onChange={(e) => setNewEquipment({ ...newEquipment, zone: e.target.value })}
-                        className="w-full px-4 py-2 bg-background border border-neon-cyan/30 rounded-lg text-foreground focus:border-neon-cyan/60 focus:outline-none"
-                    >
-
                     </select>
                   </div>
                 </div>
