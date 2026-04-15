@@ -17,7 +17,7 @@ import { getAuth, clearAuth } from "@/lib/auth"
 const API_USERS = "http://localhost:8080/api/users"
 const API_TEAMS = "http://localhost:8080/api/teams"
 
-type Role = "CITIZEN" | "TECHNICIAN" | "LEADER" | "MANAGER" | "ADMIN" | "SUPER_ADMIN"
+type Role = "TECHNICIAN" | "LEADER"
 type ProfessionalSpeciality =
     | "PUBLIC_LIGHTING" | "ELECTRICITY" | "TRAFFIC_SIGNALS" | "GAZ"
     | "SANITATION" | "ROADS" | "ENVIRONMENT" | "FIRE_SAFETY"
@@ -89,6 +89,7 @@ export default function ManagerUsersPage() {
   }, [])
 
   const token  = auth?.token  ?? ""
+  const managerZone = (auth as any)?.zone ?? ""
 
   const h = { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
 
@@ -127,12 +128,12 @@ export default function ManagerUsersPage() {
   const [showAddTeam, setShowAddTeam] = useState(false)
   const [newTeamTechInput, setNewTeamTechInput] = useState("")
   const [newTeam, setNewTeam] = useState<{ speciality: ProfessionalSpeciality; zone: Zone; leaderId: string; technicianIds: string[] }>({
-    speciality: "ELECTRICITY", zone: "NORTH", leaderId: "", technicianIds: []
+    speciality: "ELECTRICITY", zone: (managerZone || "NORTH") as Zone, leaderId: "", technicianIds: []
   })
 
   // Teams tab filters and leader names
   const [teamFilterSpeciality, setTeamFilterSpeciality] = useState<ProfessionalSpeciality | "">("")
-  const [teamFilterZone, setTeamFilterZone] = useState<Zone | "">("")
+  const [teamFilterZone, setTeamFilterZone] = useState<Zone | "">((managerZone as Zone) || "")
   const [teamFilterLeaderEmail, setTeamFilterLeaderEmail] = useState("")
   const [leaderEmailSearching, setLeaderEmailSearching] = useState(false)
   const [leaderEmailMatchedIds, setLeaderEmailMatchedIds] = useState<Set<string> | null>(null)
@@ -144,6 +145,9 @@ export default function ManagerUsersPage() {
   useEffect(() => {
     if (activeTab === "teams") fetchTeams()
   }, [activeTab])
+
+  // Ensure teams are loaded to compute manager-zone visibility in Users tab as well
+  useEffect(() => { fetchTeams() }, [])
 
   // Debounced leader email contains search for Teams tab (300ms)
   useEffect(() => {
@@ -190,8 +194,12 @@ export default function ManagerUsersPage() {
         if (!res.ok) throw new Error(await res.text())
 
         let list: UserDTO[] = await res.json()
-        // Manager can only fetch leaders and technicians
+        // Manager can only fetch leaders and technicians in their zone
+        const inZoneTeamIds = new Set(teams.map(t => t.id))
         list = list.filter(u => MANAGEABLE_ROLES.includes(u.role))
+                   .filter(u => u.role === "LEADER"
+                     ? teams.some(t => t.leaderId === u.id)
+                     : (u.teamId ? inZoneTeamIds.has(u.teamId) : false))
         if (filterRole) list = list.filter(u => u.role === filterRole)
         if (filterSpeciality) list = list.filter(u => (u.speciality as any) === filterSpeciality)
         setUsers(list)
@@ -212,7 +220,8 @@ export default function ManagerUsersPage() {
       const res = await fetch(API_TEAMS, {headers: h})
 
       const list: Team[] = await res.json()
-      setTeams(list)
+      const inZone = (managerZone ? list.filter(t => (t.zone as any) === (managerZone as any)) : list)
+      setTeams(inZone)
       // Batch fetch leader usernames
       const uniqueLeaderIds = Array.from(new Set(list.map(t => t.leaderId).filter(Boolean))) as string[]
       if (uniqueLeaderIds.length > 0) {
@@ -546,21 +555,7 @@ export default function ManagerUsersPage() {
                         {MANAGEABLE_ROLES.map(r => <option key={r} value={r}>{fmt(r)}</option>)}
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-xs text-muted-foreground mb-2">Speciality</label>
-                      <select
-                        value={filterSpeciality}
-                        onChange={e => setFilterSpeciality(e.target.value as ProfessionalSpeciality | "")}
-                        disabled={filterRole === "CITIZEN"}
-                        className={`w-full px-4 py-2 bg-background border border-neon-cyan/20 focus:border-neon-cyan/50 rounded-lg text-foreground focus:outline-none text-sm ${filterRole === "CITIZEN" ? "opacity-50 cursor-not-allowed" : ""}`}
-                      >
-                        <option value="">Any speciality</option>
-                        {SPECIALITIES.map(s => <option key={s} value={s}>{fmt(s)}</option>)}
-                      </select>
-                      {filterRole === "CITIZEN" && (
-                        <p className="text-[11px] text-muted-foreground mt-1">Citizens have no speciality</p>
-                      )}
-                    </div>
+
                     <div>
                       {/* reserved column for future filters */}
                     </div>
@@ -574,11 +569,6 @@ export default function ManagerUsersPage() {
                       Role: {fmt(filterRole)}<button onClick={() => setFilterRole("")} className="ml-1 hover:text-white font-bold">×</button>
                     </span>
                         )}
-                        {filterSpeciality && (
-                            <span className="text-xs px-3 py-1 rounded-full bg-neon-blue/10 border border-neon-blue/30 text-neon-blue flex items-center gap-1">
-                      Spec: {fmt(filterSpeciality)}<button onClick={() => setFilterSpeciality("")} className="ml-1 hover:text-white font-bold">×</button>
-                    </span>
-                        )}
                         {filterEmail && (
                             <span className="text-xs px-3 py-1 rounded-full bg-green-400/10 border border-green-400/30 text-green-400 flex items-center gap-1">
                       Email: {filterEmail}<button onClick={() => setFilterEmail("")} className="ml-1 hover:text-white font-bold">×</button>
@@ -589,7 +579,7 @@ export default function ManagerUsersPage() {
 
                   <div className="flex gap-3">
                     <Button onClick={handleSearch}
-                            disabled={loadingUsers || (!!filterEmail.trim()) || (!filterRole && !filterSpeciality)}
+                            disabled={loadingUsers || (!!filterEmail.trim()) || (!filterRole )}
                             className="bg-gradient-to-r from-neon-cyan/80 to-neon-blue/80 text-background hover:from-neon-cyan hover:to-neon-blue border border-neon-cyan/40">
                       {loadingUsers ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}Search
                     </Button>
