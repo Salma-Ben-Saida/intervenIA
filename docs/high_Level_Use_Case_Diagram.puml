@@ -1,0 +1,62 @@
+@startuml ""
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+actor Citizen
+actor Technician
+actor "Team Leader" as Chef
+actor Manager
+actor Admin
+actor "System (AI + Solver)" as System
+
+package "IntervenIA - Smart City Platform (High Level)" {
+
+  usecase "Submit Incident" as UC1
+  usecase "Track Incident Status" as UC2
+
+  usecase "Validate & Review Incidents" as UC3
+
+  usecase "Run Planning & Assign Teams" as UC4
+
+  usecase "Execute Intervention" as UC5
+  usecase "Update Intervention Status" as UC6
+
+  usecase "Manage Users & Teams" as UC7
+}
+
+' =====================
+' CITIZEN
+' =====================
+Citizen --> UC1
+Citizen --> UC2
+
+' =====================
+' TEAM LEADER
+' =====================
+Chef --> UC3
+Chef --> UC6
+
+' =====================
+' TECHNICIAN
+' =====================
+Technician --> UC5
+Technician --> UC6
+
+' =====================
+' MANAGER
+' =====================
+Manager --> UC4
+Manager --> UC3
+
+' =====================
+' ADMIN
+' =====================
+Admin --> UC7
+
+' =====================
+' SYSTEM AUTOMATION
+' =====================
+System --> UC4
+
+@enduml

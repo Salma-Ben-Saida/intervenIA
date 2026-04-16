@@ -1,8 +1,8 @@
 package tn.intervenIA.intervenIA.application.service.planning.expansion;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import tn.intervenIA.intervenIA.application.service.equipment.EquipmentService;
 import tn.intervenIA.intervenIA.domain.model.Zone;
 import tn.intervenIA.intervenIA.domain.model.equipment.EquipmentName;
 import tn.intervenIA.intervenIA.domain.model.equipment.EquipmentRequirement;
@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class TaskExpander {
@@ -46,8 +47,11 @@ public class TaskExpander {
                         incident.getZone(),
                         rule.requiredSpecialities()
                 );
+
+
         if (availableTechs == 0) {
-            return List.of(); // defer, escalate, or keep pending
+            log.warn("No technicians found for zone {}. Keeping incident for solver anyway.", incident.getZone());
+            availableTechs = 1; // fallback so solver still works
         }
 
 

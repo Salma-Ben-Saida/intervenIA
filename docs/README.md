@@ -1,434 +1,483 @@
 # Intervenia
 
-Intervenia is an intelligent urban incident management and intervention planning platform. It combines AI-powered classification with constraint-based optimization to automate and improve how city services respond to incidents.
+Intervenia is an intelligent urban incident management and intervention planning platform. It combines AI-powered classification with constraint-based optimization to automate how city services respond to incidents.
 
-The system is built as a full-stack application using a modern architecture:
+The system is designed as a **decision-support and automation platform** for smart cities, enabling efficient allocation of human and material resources.
 
-Backend: Spring Boot (Java 17)
-Frontend: Next.js (React)
-Database: MongoDB (NoSQL)
-Optimization Engine: Choco Solver
-AI Layer: LLM-based classification service
+## 🎥 Demo Video
 
-## Table of Contents
+A short demonstration of the system in action:
 
+👉 https://share.descript.com/view/mv0B2tld9AH
 
-## Overview
-Intervenia enables municipalities or organizations to:
+---
 
-Collect incident reports from citizens
-Automatically classify incidents using AI
-Assign the most suitable teams and technicians
-Optimize scheduling based on constraints (availability, skills, location, equipment)
-Notify stakeholders and track execution
+## 🚀 Tech Stack
 
-The platform significantly improves:
+**Backend**
 
-⏱ Response time
-⚙️ Resource utilization
-📊 Operational efficiency
+* Java 17
+* Spring Boot
+* Spring Data MongoDB
+* Spring Security (JWT)
+* Choco Solver (constraint programming)
 
-## System architecture
-Intervenia follows a modular service-oriented architecture:
+**Frontend**
 
-🔹 Backend (Spring Boot)
-REST APIs (Spring Web)
-Business logic & domain services
-Optimization engine integration (Choco Solver)
-AI integration (classification service)
-MongoDB persistence layer
+* Next.js (React)
+* Tailwind CSS
 
-🔹 Frontend (Next.js)
-Citizen portal (incident reporting)
-Admin dashboards (teams, planning, monitoring)
-API consumption via REST
+**Database**
 
-🔹 External/Supporting Components
-AI Service (LLM-based classification)
-Notification Service (emails / alerts)
-MongoDB database
+* MongoDB (NoSQL)
 
+**AI Layer**
 
-The backend is designed around:
+* LLM-based classification service
 
-Domain-driven structure
-Service layer separation
-Stateless APIs
-Event-like workflow (incident lifecycle)
+---
 
-### End to end workflow
+## 🧠 Core Features
 
-![sequence diagram.png](sequence%20diagram.png)
+* AI-assisted incident classification
+* Zone-based resource management
+* Constraint-based planning (Choco Solver)
+* Equipment-aware scheduling
+* Role-based dashboards
+* Real-time intervention lifecycle tracking
 
-The system follows a fully automated pipeline:
+---
 
-🟢 Step 1 — Incident Submission
-A citizen submits:
-Description
-Photos
-Request → Backend API
-🟡 Step 2 — AI Classification
-AI analyzes the description:
-Predicts incident type
-Estimates urgency level
-Suggests required specialty
-Returns:
-aiPredictedName
-aiConfidence
-Guidance message
-🔵 Step 3 — User Validation
-Citizen:
-Confirms AI suggestion
-OR
-Manually adjusts information
+## 👥 User Roles & Privileges
 
-🟣 Step 4 — Incident Creation
-Backend stores the incident in MongoDB
-Incident becomes a planning input
+![high_Level_Use_Case_Diagram.png](diagrams_photos/high_Level_Use_Case_Diagram.png)
+### 🟢 Citizen
 
-🔴 Step 5 — Auto Planning (Core Intelligence)
+* Submit incidents (description, images, location)
+* Receive AI suggestions (type, urgency, speciality)
+* Confirm or edit incident before submission
 
-The planning engine:
+---
 
-Finds eligible teams
-Filters available technicians
-Checks equipment availability
-Solves constraints using Choco Solver
+### 🔵 Zone_Manager
 
-Constraints include:
+* Manages **ONE specific zone**
+* Can:
 
-Technician skills
-Working hours
-Geographic zone
-Equipment availability
+    * View incidents in their zone
+    * View teams, leaders, and technicians in their zone
+    * Run **weekly planning solver ONLY for their zone**
+* Cannot access other zones
 
-👉 Output:
-Optimized PlanningAssignment
+---
 
-🟠 Step 6 — Notifications
-Manager notified
-Team leader notified
-Technicians assigned
+### 🟣 Team Leader
 
-⚫ Step 7 — Execution
-Intervention starts
-Status updated (e.g., IN_PROGRESS, DONE)
+* Leads a team within a zone
+* Receives assignments from planning
+* Monitors team execution
+* Coordinates technicians
 
-#### Data modeling
+---
 
-Core Collections:
-  incidents
-  users
-  teams
-  equipment
-  planningAssignments
+### 🟠 Technician
 
-Strategy: Embedding vs Referencing:
-  One of the most important design decisions in this project was transitioning from a relational UML class diagram to a NoSQL document model.
+* Assigned to a team
+* Executes interventions
+* Has:
 
-  From UML to MongoDB
-  
-  In the original class diagram:
-  
-  Entities were strongly normalized
-  Relationships were explicit (FKs)
-  
-  In MongoDB:
-  
-  We redesigned the model to balance:
-  Performance ⚡
-  Flexibility 🔄
-  Scalability 📈
+    * `speciality`
+    * `shiftStart / shiftEnd`
+    * `maxDailyHours`
+    * `onCall` (for emergencies)
+    * `isAvailable`
 
-          📌 When We Use Embedding?
-          
-          We embed data when:
-          
-          It is tightly coupled
-          It is read together frequently
-          It has limited size and growth
-          ✅ Example: Equipment inside PlanningAssignment
-          equipment: [
-          {
-          equipmentId,
-          name,
-          quantity,
-          usageType,
-          zone
-          }
-          ]
-          
-          👉 Why?
-          
-          Equipment requirements are specific to the assignment
-          Avoids joins during planning execution
-          Improves read performance
+The full diagram is available in:
+
+/docs/engineer_Level_Use_Case_Diagram.puml
+
+and exported version:
+
+/docs/diagrams_photos/high_Level_Use_Case_Diagram.png
+
+---
+
+### 🔴 Global Administrator
+
+* Full system access
+* Manages users, teams, equipment, and system configuration
+
+---
+Engineer level use case diagram:
+
+![engineer_level_usecases.png](diagrams_photos/engineer_level_usecases.png)
+
+The full diagram is available in:
+
+/docs/engineer_Level_Use_Case_Diagram.puml
+
+and exported version:
+
+/docs/diagrams_photos/engineer_level_usecases.png
+
+---
+
+## ⚙️ System Architecture
+
+Intervenia follows a **modular, domain-driven architecture**:
+
+### Backend (Spring Boot)
+
+* REST APIs
+* Domain services
+* Planning engine (Choco Solver)
+* Equipment management
+* AI integration
+
+### Frontend (Next.js)
+
+* Citizen portal
+* Manager dashboard
+* Admin panel
+
+### External Services
+
+* AI classification service
+* Notification service
 
 
-          When We Use Referencing (by ID)
-          
-          We use references when:
-          
-          Data is shared across multiple entities
-          It changes frequently
-          It can grow large
-          ✅ Examples:
-          1. Incident → PlanningAssignment
-             incidentId
-             2. Team → Users
-                teamId
-                technicianIds[]
-             3. PlanningAssignment → Technician
-                technicianId
 
-Key Design Insight:
+---
 
-👉 Intervenia uses a hybrid approach:
+## 🔄 End-to-End Workflow
+![sequence_diagram.png](diagrams_photos/sequence_diagram.png)
+1. **Incident Submission**
 
-Embedding for execution context (planning snapshot)
-Referencing for core entities (users, teams, incidents)
+    * Citizen submits description, images, location
 
-This ensures:
+2. **AI Classification**
 
-🚀 Fast planning execution
-🔄 Independent updates of core entities
-📈 Scalability for large systems
+    * Predicts:
 
-```mermaid
-erDiagram
-User {
-string id PK
-string email
-string username
-string password
-Role role
-string teamId FK
-int shiftStart
-int shiftEnd
-int maxDailyHours
-bool onCall
-ProfessionalSpeciality speciality
-bool isAvailable
-Zone managedZone
-ProfessionalSpeciality managedSpeciality
-}
+        * Incident type
+        * Urgency level
+        * Required speciality
 
-Team {
-string id PK
-string leaderId FK
-ProfessionalSpeciality speciality
-Zone zone
-string[] technicianIds
-}
+3. **User Validation**
 
-Incident {
-string id PK
-IncidentName name
-string description
-Date submittedAt
-string citizenId FK
-UrgencyLevel urgencyLevel
-IncidentType incidentType
-IncidentStatus incidentStatus
-Zone zone
-ProfessionalSpeciality[] speciality
-double locationLat
-double locationLng
-string locationAddress
-bool aiEnabled
-float aiConfidence
-IncidentName aiPredictedName
-}
+    * Citizen confirms or edits AI result
 
-Equipment {
-string id PK
-string signature
-EquipmentName equipmentName
-int quantity
-int inUse
-EquipmentType equipmentType
-EquipmentStatus status
-string model
-Zone zone
-}
+4. **Incident Storage**
 
-PlanningAssignment {
-string id PK
-string incidentId FK
-string teamId FK
-string technicianId FK
-ProfessionalSpeciality speciality
-Zone zone
-Instant startTime
-Instant endTime
-PlanningStatus status
-}
+    * Saved in MongoDB
 
-EquipmentRequirement {
-EquipmentName name
-int quantity
-EquipmentUsageType usageType
-}
+5. **Planning (Core Intelligence)**
 
-User ||--o{ Team : "belongs to"
-Team ||--|| User : "led by"
-Team }o--o{ User : "has technicians"
-PlanningAssignment }o--|| Incident : "addresses"
-PlanningAssignment }o--|| Team : "assigned to"
-PlanningAssignment }o--|| User : "executed by"
-PlanningAssignment ||--o{ EquipmentRequirement : "uses"
-Equipment ||--o{ EquipmentRequirement : "referenced by"
+   The solver:
+
+    * Filters incidents by **zone**
+    * Expands tasks
+    * Validates equipment availability
+    * Assigns technicians
+
+6. **Notifications**
+
+    * Manager, team leader, technicians notified
+
+7. **Execution**
+
+    * Status progresses:
+
+        * PENDING → IN_PROGRESS → DONE
+
+
+The full diagram is available in:
+
+/docs/sequence_diagram.puml
+
+and exported version:
+
+/docs/diagrams_photos/sequence-Diagram.png
+
+---
+🧩 Class Diagram Overview
+
+![class_diagram_.png](diagrams_photos/class_diagram_.png)
+
+
+The Class Diagram represents the core domain model of IntervenIA and how entities interact within the system. It is designed using a hybrid DDD-inspired structure adapted to a MongoDB-based architecture.
+
+* Main Purpose
+
+It provides a static view of the system, focusing on:
+
+Core business entities (User, Team, Incident, Equipment, PlanningAssignment)
+Relationships between domain objects
+System constraints (roles, zones, specialities, statuses)
+Data structure used by the planning and solver engine.
+
+Key Design Principles
+  * User-Centric Model: Users are central and linked to teams, roles, and operational constraints
+  * Zone-Based Organization: Most entities are scoped by Zone to support regional planning isolation
+  * Speciality-Driven Assignment: Teams and technicians are matched based on ProfessionalSpeciality
+  * Hybrid Data Modeling:
+  * Embedded structures for execution-time data (e.g., equipment usage in planning)
+  * Referenced entities for core domain objects (users, teams, incidents)
+ 
+* Solver Integration
+
+The class model directly feeds the Choco Solver engine by transforming:
+
+Incidents → PlanningTasks
+Users → PlanningTechnicians
+Equipment rules → Constraint inputs
+
+This ensures the solver operates on a clean, optimized, and pre-filtered domain snapshot.
+
+* Location in Repository
+
+The full diagram is available in:
+
+/docs/class-diagram.puml
+
+and exported version:
+
+/docs/diagrams_photos/class-diagram.png
+
+## 🧠 Planning Engine (Choco Solver)
+
+### 🎯 Objective
+
+Minimize total intervention start time (respond as early as possible)
+
+---
+![Solver_Architecture___Snake_Flow.png](diagrams_photos/Solver_Architecture___Snake_Flow.png)
+### ✅ Constraints
+
+#### 1. Technician Assignment
+
+A technician can be assigned only if:
+
+* `isAvailable == true`
+* Same `zone` as task
+* Same `speciality`
+* Does not exceed:
+
+  ```
+  weeklyHoursAssigned ≤ maxDailyHours × 7
+  ```
+
+---
+
+#### 2. Time Windows
+
+Each task must satisfy:
+
+* `start >= earliestStart`
+* `start <= deadline`
+
+---
+
+#### 3. Shift Constraints
+
+* Tasks must fit inside technician working hours
+* Supports:
+
+    * Day shifts (e.g., 07 → 15)
+    * Night shifts (20 → 04)
+* Special handling for night wrap-around
+
+---
+
+#### 4. On-Call Logic (Critical Emergencies)
+
+* On-call technicians can work during off ساعات (04 → 07)
+* Only for:
+
+    * `IncidentType = EMERGENCY`
+    * `Urgency = CRITICAL`
+
+---
+
+#### 5. No Overlapping Tasks
+
+A technician cannot handle overlapping tasks:
+
+```
+taskA ends before taskB OR taskB ends before taskA
 ```
 
+---
 
-#### Tech Stack
-  Backend
-    Java 17
-    Spring Boot
-    Spring Data MongoDB
-    Spring Security (JWT)
-    Choco Solver
-    OpenAPI / Swagger
-    Actuator
-  Frontend
-    Next.js 16
-    React 19
-    Tailwind CSS
-    Radix UI
-  Database
-    MongoDB
+#### 6. Equipment Constraints (Pre-Solver Validation)
 
-#### Monorepo Structure
+Equipment is validated BEFORE solving.
+
+### 🧰 Equipment Logic
+
+* Equipment is stored by:
+
+    * `zone`
+    * `name`
+    * `status`
+
+* Requirements come from **EquipmentRegistry**
+
+Each requirement has:
+
+* `name`
+* `quantity`
+* `usageType`
+
+---
+
+### ⚡ Usage Types
+
+#### PER_TECHNICIAN
+
 ```
-/ (project root)
-├─ frontend/                 # Next.js app
-├─ src/                      # Spring Boot backend source
-├─ pom.xml                   # Maven project
-├─ mvnw, mvnw.cmd            # Maven wrapper
-├─ qodana.yaml               # Static analysis config (JetBrains)
-└─ target/                   # Maven build outputs (generated)
+required = quantity × number_of_technicians
 ```
 
-## Prerequisites
-- Java 17+
-- Maven 3.9+
-- Node.js 18+ (recommended 20+)
-- npm 9+ or pnpm/yarn
-- MongoDB 6+ (remote connection)
+Examples:
 
-## Getting Started
-1) Backend (Spring Boot)
-From the project root:
+* Gloves
+* Radios
+* Safety gear
+
+---
+
+#### PER_MISSION
+
 ```
-# Install dependencies and start the backend
+required = quantity
+```
+
+Examples:
+
+* Truck
+* Generator
+* Heavy machinery
+
+---
+
+### ✅ Validation Algorithm
+
+1. Get requirements from registry (based on speciality)
+2. Aggregate total required equipment per type
+3. Query DB:
+
+   ```
+   findByZoneAndNameAndStatus(zone, name, OPERATIONAL)
+   ```
+4. Compare:
+
+   ```
+   available >= required
+   ```
+5. If not → incident is skipped
+
+The full diagram is available in:
+
+/docs/solver_Architecture.puml
+
+and exported version:
+
+/docs/diagrams_photos/Solver_Architecture___Snake_Flow.png
+
+---
+
+## 🗄️ Data Modeling Strategy
+
+Intervenia uses a **hybrid NoSQL approach**:
+
+![Data model](diagrams_photos/data_model.png)
+
+### ✅ Embedding (for performance)
+
+Example:
+
+```
+PlanningAssignment → EquipmentRequirement[]
+```
+
+### ✅ Referencing (for scalability)
+
+* User → Team
+* Assignment → Incident
+* Assignment → Technician
+
+---
+
+## Core Collections
+
+* `users`
+* `teams`
+* `incidents`
+* `equipment`
+* `planningAssignments`
+
+
+The diagram photo is available in:
+
+docs/diagrams_photos/data_model.png
+
+---
+
+## 📁 Project Structure
+
+```
+/frontend        → Next.js app
+/src             → Spring Boot backend
+```
+
+---
+
+## ▶️ Getting Started
+
+### Backend
+
+```
 ./mvnw spring-boot:run
 ```
-By default the app runs on http://localhost:8080.
 
-Run tests:
-```
-./mvnw test
-```
-Build an executable jar:
-```
-./mvnw -DskipTests package
-# Jar will be in target/ (e.g., target/intervenia-0.0.1-SNAPSHOT.jar)
-```
+### Frontend
 
-2) Frontend (Next.js)
-From the project root:
 ```
 cd frontend
 npm install
 npm run dev
 ```
-The frontend starts on http://localhost:3000.
 
-For a production build:
-```
-npm run build
-npm start
-```
+---
 
-### Configuration
-#### Backend configuration
-Spring Boot reads configuration from `application.properties` or `application.yml`. Typical settings:
-```
-spring.data.mongodb.uri=mongodb://localhost:27017/intervenia
-server.port=8080
-# JWT/crypto related settings (example)
-app.security.jwt.secret=change-me
-app.security.jwt.expiration=3600000
-# Springdoc OpenAPI
-springdoc.api-docs.enabled=true
-springdoc.swagger-ui.enabled=true
-```
-Environment variables can override properties (e.g., `SPRING_DATA_MONGODB_URI`).
+## 🔮 Future Improvements
 
-#### Frontend configuration
-Create `frontend/.env.local` to point the app to the backend:
-```
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
-```
-Use `NEXT_PUBLIC_` prefix for any variable needed in the browser.
+* More refined and optimized Zone-restricted solver execution per manager  (currently)
+* Dynamic re-planning (real-time incidents)
+* Real time notifications (n8n)
+* Handle user app feedback
+* Auto generate reports and analysis
+* Multi-city scaling
 
-#### API Documentation
-With Springdoc (version 2.x), OpenAPI endpoints are available at:
-- JSON: `http://localhost:8080/v3/api-docs`
-- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
+---
 
-#### Example API Endpoints
-The `UserController` exposes basic CRUD and query endpoints under `/api/users`:
-- `POST /api/users` — create a user
-- `GET /api/users/{id}` — get a user by ID
-- `GET /api/users` — list users
-- `GET /api/users/team/{id}` — list users by team ID
-- `GET /api/users/role/{role}` — list users by role
-- `GET /api/users/speciality/{speciality}` — list users by professional speciality
-- `GET /api/users/email/{email}` — find user by email
-- `PUT /api/users/{id}` — update user
-- `DELETE /api/users/{id}` — delete user
-- `PUT /api/users/{onCall}/{id}` — update on‑call status for a user
-- `PUT /api/users/{shiftStart}/{shiftEnd}/{id}` — update user shift hours
+## 🧠 Key Design Insight
 
-Note: Endpoint paths above are derived from the source and may be subject to change if controllers evolve.
+Intervenia separates:
 
-Other notable backend areas (examples based on repository structure):
-- Equipment domain and services: `tn.intervent360.intervent360.domain.model.equipment.*`, `application.service.equipment.EquipmentService`
-- Teams and embeddings: `application.service.team.TeamEmbeddingService`
-- Password utilities/migration: `application.service.PasswordMigrationService`
+* **Domain Logic** → EquipmentRegistry (rules)
+* **Persistence** → MongoDB (resources)
+* **Optimization** → Choco Solver (decisions)
 
-#### Development Tips
-- CORS: The backend enables `@CrossOrigin(origins = "*")` on controllers like `UserController`. Adjust for production.
-- Validation: Use Spring Validation annotations in DTOs; violations return 400 responses.
-- MongoDB: Ensure your local MongoDB is running and the configured database exists or can be created.
-- Actuator: Access health/metrics at `/actuator` (secure appropriately in production).
+This separation ensures:
 
-#### Build for Production
-- Backend: `./mvnw -DskipTests clean package` then run `java -jar target/intervenia-0.0.1-SNAPSHOT.jar` with proper environment variables.
-- Frontend: `npm run build && npm start` in `frontend/`. Configure a reverse proxy (e.g., Nginx) or a PaaS runtime. Ensure `NEXT_PUBLIC_API_BASE_URL` points to the deployed backend.
+* Maintainability
+* Scalability
+* Real-world modeling accuracy
 
-#### Quality & Linting
-- Frontend: `npm run lint`
-- Backend: Use your IDE static analysis; project includes `qodana.yaml` for JetBrains Qodana.
+---
 
-#### Troubleshooting
-- Port conflicts: Change `server.port` (backend) or pass `-p 3001`/`PORT=3001` for Next.js.
-- MongoDB connection errors: Verify `spring.data.mongodb.uri` and that MongoDB is running and accessible.
-- Swagger UI not found: Confirm Springdoc starter is present and endpoints are enabled (`/swagger-ui/index.html`).
+## 📜 License
 
-#### Future Improvements
-Automatic re-planning (dynamic incidents)
-Intervention history tracking
-Real-time monitoring dashboard
-Advanced AI recommendations
-Multi-city scalability
-
-#### Contributing
-1. Fork the repo and create a feature branch.
-2. Follow existing code style and conventions.
-3. Add/update documentation and tests where applicable.
-4. Open a pull request with a clear description.
-
-#### License
-This project is currently unlicensed. If you plan to use it publicly, consider adding a suitable open‑source license (e.g., MIT, Apache‑2.0).
+Currently unlicensed. Consider adding MIT or Apache-2.0.

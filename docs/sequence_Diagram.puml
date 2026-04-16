@@ -1,0 +1,87 @@
+@startuml "sequence_diagram"
+autonumber
+skinparam sequenceParticipant underline
+skinparam shadowing false
+
+actor Citizen
+actor Manager
+actor "Team Leader" as TL
+actor Technician
+
+participant "Frontend\nCitizen Portal" as FE
+participant "Backend API" as API
+participant "IncidentService" as IS
+participant "AI Service\n(LLaMA)" as AI
+participant "PlanningService\nOrchestrator" as PS
+participant "Choco Solver Engine" as SOLVER
+participant "TeamService" as TS
+participant "EquipmentRegistry" as ER
+participant "NotificationService" as NS
+database "MongoDB" as DB
+
+== 1. Incident submission ==
+Citizen -> FE : Submit incident (description + photos)
+FE -> API : POST /incident/classify
+activate API
+
+== 2. AI classification ==
+API -> AI : classify(description)
+AI --> API : predictedType + confidence + suggestedSpeciality
+API --> FE : return AI suggestion
+
+== 3. User confirmation ==
+alt AI suggestion accepted
+    FE -> API : POST /incidents (confirmed data)
+else Manual correction
+    FE -> API : POST /incidents (edited data)
+end
+
+== 4. Incident creation ==
+API -> IS : createIncident()
+IS -> DB : insert Incident document
+DB --> IS : incidentId
+IS --> API : incident created
+deactivate API
+
+== 5. Planning request ==
+API -> PS : buildAndSolve(incidentId)
+activate PS
+
+PS -> TS : loadTeamsByZoneAndSpeciality()
+TS --> PS : eligible teams
+
+PS -> TS : loadAvailableTechnicians()
+TS --> PS : technicians list
+
+PS -> ER : getEquipmentRequirements(speciality)
+ER --> PS : equipment rules
+
+== 6. Optimization (Choco Solver) ==
+PS -> SOLVER : solve(tasks, constraints)
+SOLVER --> PS : optimized assignments
+
+== 7. Persist solution ==
+PS -> DB : save PlanningAssignment
+DB --> PS : OK
+
+PS --> API : planning result
+deactivate PS
+
+== 8. Notifications ==
+API -> NS : notifyManager(planning ready)
+NS -> Manager : New planning available
+
+API -> NS : notifyTeamLeader()
+NS -> TL : New assignment
+
+API -> NS : notifyTechnicians()
+NS -> Technician : Task assigned
+
+== 9. Execution lifecycle ==
+Technician -> API : start intervention
+API -> DB : update status = IN_PROGRESS
+
+Technician -> API : complete intervention
+API -> DB : update status = COMPLETED
+
+@enduml

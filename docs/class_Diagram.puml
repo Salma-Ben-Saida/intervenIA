@@ -1,0 +1,194 @@
+@startuml 'class-diagram'
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+left to right direction
+
+' ====================================
+' ENUMS
+' ====================================
+
+enum ProfessionalSpeciality {
+  PUBLIC_LIGHTING
+  ELECTRICITY
+  TRAFFIC_SIGNALS
+  GAZ
+  SANITATION
+  ROADS
+  ENVIRONMENT
+  FIRE_SAFETY
+  TELECOMMUNICATION_IOT
+  EMERGENCY
+}
+
+enum EquipmentUsageType {
+  PER_TECHNICIAN
+  PER_MISSION
+}
+
+enum UrgencyLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentType {
+  COMPLAINT
+  INTERVENTION_REQUEST
+  EMERGENCY
+}
+
+enum IncidentStatus {
+  PENDING
+  SCHEDULED
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum Zone {
+  NORTH
+  SOUTH
+  CENTER
+}
+
+enum Role {
+  ADMIN
+  SUPER_ADMIN
+  MANAGER
+  LEADER
+  TECHNICIAN
+  CITIZEN
+}
+
+enum EquipmentStatus {
+  OPERATIONAL
+  OUT_OF_SERVICE
+  UNDER_REPAIR
+  BROKEN
+}
+
+enum PlanningStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+' ====================================
+' CORE DOMAIN
+' ====================================
+
+class User {
+  id : String
+  username : String
+  email : String
+  password : String
+  role : Role
+  speciality : ProfessionalSpeciality
+  isAvailable : Boolean
+  maxDailyHours : int
+  onCall : Boolean
+  shiftStart : int
+  shiftEnd : int
+  teamId : String
+}
+
+class Team {
+  id : String
+  leaderId : String
+  speciality : ProfessionalSpeciality
+  zone : Zone
+  technicianIds : List<String>
+}
+
+class Incident {
+  id : String
+  citizenId : String
+  citizenMessage : String
+  description : String
+  name : String
+  photos : List<String>
+  urgencyLevel : UrgencyLevel
+  incidentType : IncidentType
+  incidentStatus : IncidentStatus
+  aiEnabled : Boolean
+  aiConfidence : double
+  aiPredictedName : String
+  submittedAt : Date
+  zone : Zone
+}
+
+class Location {
+  lat : double
+  lng : double
+  address : String
+}
+
+class Equipment {
+  id : String
+  equipmentName : EquipmentName
+  equipmentType : EquipmentType
+  usageType : EquipmentUsageType
+  model : String
+  signature : String
+  quantity : int
+  inUse : int
+  status : EquipmentStatus
+  zone : Zone
+}
+
+class EquipmentRequirement {
+  name : EquipmentName
+  quantity : int
+  usageType : EquipmentUsageType
+}
+
+class PlanningAssignment {
+  id : String
+  incidentId : String
+  teamId : String
+  technicianId : String
+  startTime : Date
+  endTime : Date
+  status : PlanningStatus
+  speciality : ProfessionalSpeciality
+  zone : Zone
+}
+
+' ====================================
+' RELATIONSHIPS (MONGODB STYLE)
+' ====================================
+
+' --- Team ↔ User ---
+Team "1" --> "0..*" User : "has technicians"
+User "1" --> "1" Team : "belongs to"
+Team --> User : "leader (leaderId)"
+
+' --- Incident ---
+Incident *-- Location : "has location"
+Incident "1" --> "0..n" PlanningAssignment : "generates"
+
+' --- Planning ---
+PlanningAssignment --> Incident : "solves"
+PlanningAssignment --> Team : "assigned to"
+PlanningAssignment --> User : "executed by"
+PlanningAssignment *-- "0..n" EquipmentRequirement : "requires"
+
+' ====================================
+' NOTES (solver semantics)
+' ====================================
+note right of PlanningAssignment
+Used by Choco Solver as:
+- scheduling variable
+- constraint result
+- zone & skill filtered assignment
+end note
+
+note right of EquipmentRequirement
+Derived from EquipmentRegistry
+NOT physical inventory
+Used as solver constraint input
+end note
+
+@enduml

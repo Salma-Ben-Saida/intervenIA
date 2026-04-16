@@ -1,0 +1,122 @@
+@startuml name"""
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+' =========================
+' ACTORS
+' =========================
+actor Citizen
+actor Technician
+actor "Team Leader\n(Zone + Specialty Scope)" as Chef
+actor "Manager\n(Zone Scope)" as Manager
+actor "Global Administrator" as Admin
+actor "System (AI + Solver Engine)" as System
+
+' =========================
+' SYSTEM
+' =========================
+package "IntervenIA - Smart City Intervention Platform" {
+
+  ' -------------------------
+  ' CITIZEN FLOW
+  ' -------------------------
+  usecase "Submit Incident" as UC1
+  usecase "Geolocate Incident" as UC2
+  usecase "Auto Classify Incident (AI)" as UC3
+  usecase "Confirm / Adjust Classification" as UC4
+  usecase "Track Incident Status" as UC5
+
+  ' -------------------------
+  ' INCIDENT MANAGEMENT
+  ' -------------------------
+  usecase "View Incidents\n(Zone + Specialty)" as UC6
+  usecase "Validate Incident Data" as UC7
+  usecase "Handle Emergency Incident" as UC8
+  usecase "Receive Emergency Alerts" as UC9
+
+  ' -------------------------
+  ' PLANNING & OPTIMIZATION
+  ' -------------------------
+  usecase "Run Planning Solver\n(Zone Scoped)" as UC10
+  usecase "Check Equipment Availability" as UC11
+  usecase "Apply Scheduling Constraints\n(Skills, Shifts, Zone)" as UC12
+  usecase "Generate Optimized Assignments" as UC13
+  usecase "Override Constraints (Emergency Mode)" as UC14
+  usecase "View Planning Calendar" as UC15
+  usecase "Review & Validate Assignments" as UC16
+
+  ' -------------------------
+  ' TECHNICIAN OPERATIONS
+  ' -------------------------
+  usecase "View Assigned Tasks" as UC17
+  usecase "Execute Intervention" as UC18
+  usecase "Update Progress Status" as UC19
+  usecase "Receive Assignment Notification" as UC20
+
+  ' -------------------------
+  ' ADMINISTRATION
+  ' -------------------------
+  usecase "Manage Users (Global)" as UC21
+  usecase "Assign Roles, Zones & Teams" as UC22
+  usecase "System Configuration Access" as UC23
+}
+
+' =========================
+' ACTOR INTERACTIONS
+' =========================
+
+Citizen --> UC1
+Citizen --> UC5
+UC1 --> UC2 : <<include>>
+UC1 --> UC3 : <<include>>
+UC3 --> UC4 : <<include>>
+
+Technician --> UC17
+Technician --> UC18
+Technician --> UC19
+Technician --> UC20
+
+Chef --> UC6
+Chef --> UC7
+Chef --> UC8
+Chef --> UC9
+Chef --> UC16
+
+UC8 --> UC9 : <<include>>
+
+Manager --> UC10
+Manager --> UC15
+Manager --> UC16
+
+Admin --> UC21
+Admin --> UC22
+Admin --> UC23
+
+' =========================
+' SYSTEM AUTOMATION
+' =========================
+
+System --> UC3
+System --> UC11
+System --> UC12
+System --> UC13
+
+' =========================
+' PLANNING FLOW
+' =========================
+
+UC10 --> UC11 : <<include>>
+UC10 --> UC12 : <<include>>
+UC10 --> UC13 : <<include>>
+
+UC8 --> UC14 : <<include>>
+UC14 --> UC10 : <<extend>>
+
+UC13 --> UC16 : <<include>>
+UC16 --> UC17 : <<include>>
+
+UC17 --> UC18 : <<include>>
+UC18 --> UC19 : <<include>>
+
+@enduml

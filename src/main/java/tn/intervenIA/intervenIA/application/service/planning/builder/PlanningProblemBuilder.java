@@ -24,8 +24,7 @@ import tn.intervenIA.intervenIA.domain.repository.*;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+
 
 @Slf4j
 @Component
@@ -147,14 +146,14 @@ public class PlanningProblemBuilder {
 
     private List<PlanningTechnician> loadTechnicians() {
 
-        Map<String, Team> teamMap = teamRepository.findAll().stream()
-                .collect(Collectors.toMap(Team::getId, t -> t));
+
 
         List<User> users = userRepository.findByRole(Role.TECHNICIAN);
         List<PlanningTechnician> out = new ArrayList<>();
 
+
         for (User u : users) {
-            Team team = teamMap.get(u.getTeamId());
+            Team team = teamRepository.findById(u.getTeamId()).orElse(null);
             if (team == null) {
                 log.warn("User {} has invalid teamId {}", u.getId(), u.getTeamId());
                 continue;

@@ -1,0 +1,89 @@
+@startuml "Solver Architecture - Snake Flow"
+
+skinparam shadowing false
+skinparam componentStyle rectangle
+
+' =========================
+' MAIN LAYOUT CONTROL
+' =========================
+top to bottom direction
+
+actor "PlanningService" as PS
+
+rectangle "Planning Problem Builder" as B {
+
+  top to bottom direction
+
+  component "Incident Loader" as IL
+  component "Team Loader\n(zone + speciality)" as TL
+  component "Technician Loader\n(availability + shift)" as THL
+
+  IL -right-> TL
+  TL -right-> THL
+
+  component "Task Expander" as TE
+  component "Equipment Constraint Builder" as ECB
+
+  TE -right-> ECB
+}
+
+rectangle "Constraint Model (Choco Input)" as M {
+
+  top to bottom direction
+
+  component "Decision Variables" as DV
+  component "Hard Constraints" as HC
+  component "Soft Constraints" as SC
+  component "Objective Function" as OF
+
+  DV -right-> HC
+  HC -right-> SC
+  SC -right-> OF
+}
+
+rectangle "Choco Solver Engine" as S {
+
+  top to bottom direction
+
+  component "Constraint Propagation" as CP
+  component "Search Strategy" as SS
+  component "Optimization Engine" as OE
+
+  CP -right-> SS
+  SS -right-> OE
+}
+
+rectangle "Solution Output Layer" as O {
+
+  top to bottom direction
+
+  component "Planning Assignment Builder" as PAB
+  component "Schedule Validator" as SV
+  database "MongoDB" as DB
+
+  PAB -right-> SV
+  SV -right-> DB
+}
+
+' =========================
+' FLOW BETWEEN BLOCKS
+' =========================
+
+PS --> IL
+PS --> TL
+PS --> THL
+
+IL --> TE
+TL --> DV
+THL --> DV
+TE --> ECB
+ECB --> DV
+
+DV --> HC
+SC --> OF
+HC --> OF
+
+OF --> CP
+OE --> PAB
+
+@enduml
