@@ -16,7 +16,7 @@ import java.util.UUID;
 @CompoundIndexes({
         @CompoundIndex(name = "user_role_available_spec_idx", def = "{role:1, isAvailable:1, speciality:1}"),
         @CompoundIndex(name = "user_team_available_idx", def = "{teamId:1, isAvailable:1}"),
-        @CompoundIndex(name = "user_manager_scope_idx", def = "{role: 1, managedZone: 1, managedSpeciality: 1}")
+        @CompoundIndex(name = "user_manager_scope_idx", def = "{role: 1, managedZone: 1}")
 })
 public class User {
 
@@ -62,9 +62,6 @@ public class User {
     // Only meaningful when role == MANAGER (nullable for other roles)
     @Getter @Setter
     private Zone managedZone;
-
-    @Getter @Setter
-    private ProfessionalSpeciality managedSpeciality;
 
     // -----------------------------
     // Constructors

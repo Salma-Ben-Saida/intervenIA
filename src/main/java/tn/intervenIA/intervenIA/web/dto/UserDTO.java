@@ -22,5 +22,4 @@ public class UserDTO {
 
     // Manager scope (nullable for non-managers)
     private Zone managedZone;
-    private ProfessionalSpeciality managedSpeciality;
 }

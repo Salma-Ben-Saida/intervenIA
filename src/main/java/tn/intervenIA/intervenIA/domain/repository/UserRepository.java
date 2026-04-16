@@ -32,9 +32,4 @@ public interface UserRepository extends MongoRepository<User, String> {
 
     List<User> findByEmailContainingIgnoreCase(String substring);
 
-    Optional<User> findByRoleAndManagedZoneAndManagedSpeciality(
-            Role role,
-            Zone managedZone,
-            ProfessionalSpeciality managedSpeciality
-    );
 }

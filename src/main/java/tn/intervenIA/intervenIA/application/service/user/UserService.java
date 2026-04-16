@@ -45,13 +45,12 @@ public class UserService {
 
         // Enforce manager scope rules
         if (user.getRole() == Role.MANAGER) {
-            if (dto.getManagedZone() == null || dto.getManagedSpeciality() == null) {
+            if (dto.getManagedZone() == null) {
                 throw new IllegalArgumentException("Manager must have a managed zone and speciality");
             }
             // mapper already set these from dto
         } else {
             user.setManagedZone(null);
-            user.setManagedSpeciality(null);
         }
 
         if (user.getRole() == Role.TECHNICIAN) {
@@ -187,14 +186,12 @@ public class UserService {
 
         // Enforce manager scope rules on update
         if (dto.getRole() == Role.MANAGER) {
-            if (dto.getManagedZone() == null || dto.getManagedSpeciality() == null) {
+            if (dto.getManagedZone() == null) {
                 throw new IllegalArgumentException("Manager must have a managed zone and speciality");
             }
             user.setManagedZone(dto.getManagedZone());
-            user.setManagedSpeciality(dto.getManagedSpeciality());
         } else {
             user.setManagedZone(null);
-            user.setManagedSpeciality(null);
         }
 
         // Update password only if provided

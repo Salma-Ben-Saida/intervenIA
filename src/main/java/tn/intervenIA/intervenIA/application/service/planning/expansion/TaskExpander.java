@@ -61,7 +61,7 @@ public class TaskExpander {
             // Resolve team IDs for this speciality & zone
             List<String> teamIds = teamIdsBySpec.get(spec);
             if (teamIds == null) {
-                teamIds = teamRepository.findBySpecialityAndZone(spec, incident.getZone())
+                teamIds = teamRepository.findByZone(incident.getZone())
                         .stream().map(Team::getId).toList();
             }
 
@@ -147,7 +147,7 @@ public class TaskExpander {
         // Collect all team IDs that match any of the required specialities in the given zone
         Set<String> teamIds = new HashSet<>();
         for (ProfessionalSpeciality spec : specialities) {
-            List<Team> teams = teamRepository.findBySpecialityAndZone(spec, zone);
+            List<Team> teams = teamRepository.findByZone(zone);
             for (Team t : teams) {
                 teamIds.add(t.getId());
             }

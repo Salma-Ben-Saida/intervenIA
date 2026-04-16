@@ -20,7 +20,6 @@ public class UserMapper {
         userDTO.setOnCall(user.getOnCall());
         // Manager scope
         userDTO.setManagedZone(user.getManagedZone());
-        userDTO.setManagedSpeciality(user.getManagedSpeciality());
         return userDTO;
     }
 
@@ -40,7 +39,6 @@ public class UserMapper {
         user.setOnCall(userDTO.getOnCall());
         // Manager scope
         user.setManagedZone(userDTO.getManagedZone());
-        user.setManagedSpeciality(userDTO.getManagedSpeciality());
 
         return user;
     }

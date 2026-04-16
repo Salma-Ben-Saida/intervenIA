@@ -1,19 +1,25 @@
 "use client"
 
-import type React from "react"
-import { useState, useEffect } from "react"
+import React from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import MapPicker from "@/components/MapPicker"
 import { InterveniaLogo } from "@/components/intervenia-logo"
 import {
   ArrowLeft, Camera, Upload, MapPin, Sparkles, List,
   CheckCircle, X, Loader2, AlertCircle, Info
 } from "lucide-react"
 import { getAuth } from "@/lib/auth"
+
+import dynamic from 'next/dynamic'
+
+const MapPicker = dynamic(() => import('@/components/MapPicker'), {
+  ssr: false,
+  loading: () => <div className="h-[320px] w-full bg-muted animate-pulse rounded-xl" />
+})
 
 
 interface Location {
@@ -122,10 +128,34 @@ const INCIDENT_DOMAINS = {
   ],
   Other: [{ code: "UNKNOWN", label: "Unknown / Other", urgency: "MEDIUM", domain: "Other" }],
 }
-
+const StaticMapSection = React.memo(({ value, onChange, onConfirm }: any) => {
+  return (
+      <div className="w-full rounded-lg border border-neon-cyan/20 relative overflow-hidden h-[320px]">
+        <MapPicker
+            value={value}
+            onChange={onChange}
+            enableReverseGeocoding={true}
+            showConfirmButton={true}
+            onConfirm={onConfirm}
+        />
+      </div>
+  );
+}, (prev, next) => {
+  return prev.value?.lat === next.value?.lat && prev.value?.lng === next.value?.lng;
+});
 export default function ReportIncident() {
   // User state
   const [citizenId, setCitizenId] = useState<string>("");
+
+  const handleMapChange = useCallback((lat: number, lng: number, addr: string) => {
+    setLocation(prev => ({ ...prev, lat, lng }));
+    setAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+  }, []);
+
+  const handleMapConfirm = useCallback((lat: number, lng: number, addr: string) => {
+    setLocation({ lat, lng, address: addr || "" });
+    setAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+  }, []);
 
   // Form state
   const [description, setDescription] = useState("")
@@ -572,11 +602,6 @@ export default function ReportIncident() {
             </div>
           </Card>
 
-
-
-
-
-
           {/* Location Section */}
           <Card className="p-6 mb-6 bg-gradient-to-br from-card to-card/50 border-border/20">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -584,27 +609,17 @@ export default function ReportIncident() {
               <span className="text-red-400">*</span>
             </h2>
             <div className="space-y-4">
-              <div className="w-full rounded-lg border border-neon-cyan/20 relative overflow-hidden">
-                <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(to_right,rgba(34,211,238,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(34,211,238,0.05)_1px,transparent_1px)] bg-[size:30px_30px]"></div>
-                <div className="relative z-10 p-2">
-                  <label className="block text-sm font-medium mb-2 text-muted-foreground">
-                    Click on the map to select your location
-                  </label>
-                  <MapPicker
-                    value={location.lat && location.lng ? { lat: location.lat, lng: location.lng } : null}
-                    onChange={(lat, lng, addr) => {
-                      setLocation({ lat, lng, address: "" })
-                      setAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`)
-                    }}
-                    enableReverseGeocoding={true}
-                    showConfirmButton={true}
-                    onConfirm={(lat, lng, addr) => {
-                      setLocation({ lat, lng, address: addr || "" })
-                      setAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`)
-                    }}
-                  />
-                </div>
-              </div>
+              <label className="block text-sm font-medium mb-2 text-muted-foreground">
+                Click on the map to select your location
+              </label>
+
+              <StaticMapSection
+                  value={location.lat && location.lng ? { lat: location.lat, lng: location.lng } : null}
+                  onChange={handleMapChange}
+                  onConfirm={handleMapConfirm}
+              />
+            </div>
+
 
               {/* Address Description Field */}
               <div>
@@ -620,7 +635,7 @@ export default function ReportIncident() {
                   Add extra details like floor number, building color, nearby landmarks, etc.
                 </p>
               </div>
-            </div>
+
           </Card>
 
           {/* AI Classification Section */}

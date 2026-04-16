@@ -115,7 +115,7 @@ public class UserController {
         if (manager.getRole() != Role.MANAGER) {
             return ResponseEntity.badRequest().build();
         }
-        var teams = teamRepository.findBySpecialityAndZone(manager.getManagedSpeciality(), manager.getManagedZone())
+        var teams = teamRepository.findByZone(manager.getManagedZone())
                 .stream().map(TeamMapper::toDTO).collect(Collectors.toList());
         return ResponseEntity.ok(teams);
     }
@@ -128,7 +128,6 @@ public class UserController {
         }
         ScopeDTO dto = new ScopeDTO();
         dto.setManagedZone(manager.getManagedZone());
-        dto.setManagedSpeciality(manager.getManagedSpeciality());
         return ResponseEntity.ok(dto);
     }
 

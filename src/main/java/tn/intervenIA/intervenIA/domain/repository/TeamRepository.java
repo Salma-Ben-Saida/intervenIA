@@ -19,7 +19,7 @@ public interface TeamRepository extends MongoRepository<Team, String> {
 
     List<Team> getBySpeciality(ProfessionalSpeciality speciality);
 
-    List<Team> findBySpecialityAndZone(ProfessionalSpeciality speciality, Zone zone);
+    List<Team> findByZone(Zone zone);
 
     // Batch fetch teams by zone and a list of specialities
     List<Team> findByZoneAndSpecialityIn(Zone zone, List<ProfessionalSpeciality> specialities);
