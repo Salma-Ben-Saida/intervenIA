@@ -8,7 +8,6 @@ import tn.intervenIA.intervenIA.domain.model.equipment.Equipment;
 import tn.intervenIA.intervenIA.domain.model.equipment.EquipmentName;
 import tn.intervenIA.intervenIA.domain.model.equipment.EquipmentStatus;
 import tn.intervenIA.intervenIA.domain.model.equipment.EquipmentType;
-import tn.intervenIA.intervenIA.domain.model.team.ProfessionalSpeciality;
 
 import java.util.List;
 
@@ -29,7 +28,5 @@ public interface EquipmentRepository extends MongoRepository<Equipment, String> 
     List<Equipment> findByEquipmentNameAndZone(
             EquipmentName name,
             Zone zone
-    );
-
-}
+    );}
 
