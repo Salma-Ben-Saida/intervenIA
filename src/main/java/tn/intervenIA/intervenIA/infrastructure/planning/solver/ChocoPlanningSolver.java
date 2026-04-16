@@ -5,14 +5,14 @@ import org.chocosolver.solver.Model;
 import org.chocosolver.solver.variables.BoolVar;
 import org.chocosolver.solver.variables.IntVar;
 import org.springframework.stereotype.Component;
+import tn.intervenIA.intervenIA.application.service.planning.*;
 import tn.intervenIA.intervenIA.application.service.planning.expansion.ExpandedPlanningTask;
 import tn.intervenIA.intervenIA.domain.model.equipment.EquipmentRequirement;
 import tn.intervenIA.intervenIA.domain.model.equipment.EquipmentUsageType;
+import tn.intervenIA.intervenIA.domain.model.incident.*;
 import tn.intervenIA.intervenIA.domain.model.planning.*;
+import tn.intervenIA.intervenIA.domain.registry.*;
 
-import tn.intervenIA.intervenIA.domain.model.incident.IncidentType;
-import tn.intervenIA.intervenIA.domain.model.incident.UrgencyLevel;
-import tn.intervenIA.intervenIA.domain.registry.EquipmentRegistry;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;

@@ -14,20 +14,18 @@ import tn.intervenIA.intervenIA.domain.model.planning.PlanningProblem;
 import tn.intervenIA.intervenIA.domain.model.planning.PlanningTask;
 import tn.intervenIA.intervenIA.domain.model.planning.PlanningTeam;
 import tn.intervenIA.intervenIA.domain.model.planning.PlanningTechnician;
-
 import tn.intervenIA.intervenIA.domain.model.team.ProfessionalSpeciality;
+import tn.intervenIA.intervenIA.domain.model.team.Team;
 import tn.intervenIA.intervenIA.domain.model.user.Role;
 import tn.intervenIA.intervenIA.domain.model.user.User;
-import tn.intervenIA.intervenIA.domain.repository.IncidentRepository;
-import tn.intervenIA.intervenIA.domain.repository.TeamRepository;
-import tn.intervenIA.intervenIA.domain.repository.UserRepository;
+import tn.intervenIA.intervenIA.domain.repository.*;
+
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import tn.intervenIA.intervenIA.domain.model.team.Team;
 
 @Slf4j
 @Component
@@ -76,15 +74,12 @@ public class PlanningProblemBuilder {
                     inc.getIncidentType() == IncidentType.EMERGENCY &&
                             inc.getUrgencyLevel() == UrgencyLevel.CRITICAL;
 
-            earliestHour = 0;// ✅ allow anytime
+            earliestHour = 0;
             if (criticalEmergency) {
-                // 🚨 must start NOW
                 deadlineHour = 6;
             } else {
                 deadlineHour = earliestHour + urgencyToHours(inc.getUrgencyLevel())
                         - estimateDuration(inc);
-                // Clamp to avoid negative windows
-                deadlineHour = Math.max(earliestHour, deadlineHour);
             }
 
             PlanningTask base = new PlanningTask(
@@ -152,23 +147,24 @@ public class PlanningProblemBuilder {
 
     private List<PlanningTechnician> loadTechnicians() {
 
-        List<User> users = userRepository.findByRoleAndIsAvailableTrueAndTeamIdIsNotNull(Role.TECHNICIAN);
-        List<PlanningTechnician> out = new ArrayList<>();
-
-        // Preload teams into a map for quick lookups
         Map<String, Team> teamMap = teamRepository.findAll().stream()
                 .collect(Collectors.toMap(Team::getId, t -> t));
 
-        for (User u : users) {
-            if (u.getTeamId() == null) continue;
-            if (!Boolean.TRUE.equals(u.getIsAvailable())) continue;
+        List<User> users = userRepository.findByRole(Role.TECHNICIAN);
+        List<PlanningTechnician> out = new ArrayList<>();
 
+        for (User u : users) {
             Team team = teamMap.get(u.getTeamId());
-            if (team == null) continue;
+            if (team == null) {
+                log.warn("User {} has invalid teamId {}", u.getId(), u.getTeamId());
+                continue;
+            }
+            
+            if (!Boolean.TRUE.equals(u.getIsAvailable())) continue;
 
             PlanningTechnician p = new PlanningTechnician();
             p.setTechnicianId(u.getId());
-            p.setTeamId(team.getId());
+            p.setTeamId(u.getTeamId());
             p.setSpeciality(u.getSpeciality());
             p.setZone(team.getZone());
             p.setAvailable(true);

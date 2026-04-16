@@ -1,9 +1,12 @@
 package tn.intervenIA.intervenIA.domain.repository;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import tn.intervenIA.intervenIA.domain.model.Zone;
 import tn.intervenIA.intervenIA.domain.model.team.ProfessionalSpeciality;
+import tn.intervenIA.intervenIA.domain.model.team.Team;
 import tn.intervenIA.intervenIA.domain.model.user.Role;
 import tn.intervenIA.intervenIA.domain.model.user.User;
 
@@ -25,7 +28,7 @@ public interface UserRepository extends MongoRepository<User, String> {
     List<User> findByTeamIdInAndIsAvailableAndRole(List<String> teamIds, boolean isAvailable, Role role);
 
     // Server-side count for availability by teamIds/role
-    long countByTeamIdInAndIsAvailableAndRole(List<String> teamIds, boolean isAvailable, Role role);
+    int countByTeamIdInAndIsAvailableAndRole(List<String> teamIds, boolean isAvailable, Role role);
 
     // Narrower technician query for planning
     List<User> findByRoleAndIsAvailableTrueAndTeamIdIsNotNull(Role role);

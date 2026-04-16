@@ -1,6 +1,8 @@
 package tn.intervenIA.intervenIA.application.service.equipment;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import tn.intervenIA.intervenIA.application.mapper.EquipmentMapper;
@@ -8,18 +10,104 @@ import tn.intervenIA.intervenIA.application.service.planning.expansion.ExpandedP
 import tn.intervenIA.intervenIA.domain.model.Zone;
 import tn.intervenIA.intervenIA.domain.model.equipment.*;
 
+import tn.intervenIA.intervenIA.domain.model.team.ProfessionalSpeciality;
+import tn.intervenIA.intervenIA.domain.registry.EquipmentRegistry;
 import tn.intervenIA.intervenIA.domain.repository.EquipmentRepository;
 import tn.intervenIA.intervenIA.web.dto.EquipmentDTO;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EquipmentService {
     private final EquipmentRepository equipmentRepository;
+
+@Autowired
+private EquipmentRegistry equipmentRegistry;
+
+public boolean hasEnoughEquipment(
+        List<ExpandedPlanningTask> tasks,
+        Zone zone
+) {
+    if (tasks == null || tasks.isEmpty()) {
+        return true;
+    }
+    
+    String incidentId = tasks.get(0).getIncidentId();
+    log.debug("Checking equipment for incident {} with {} tasks in zone {}", incidentId, tasks.size(), zone);
+    
+    // Step 1: Build required totals map
+    Map<EquipmentName, Integer> requiredTotals = new HashMap<>();
+    
+    for (ExpandedPlanningTask task : tasks) {
+        // Get equipment requirements from registry based on task speciality
+        List<EquipmentRequirement> requirements = equipmentRegistry.getRequirements(task.getSpeciality());
+        
+        // Determine technician count for this task (assume 1 if not available)
+        int technicianCount = 1; // TODO: This could be enhanced to get actual technician count
+        
+        log.debug("Processing task for specialty {} with {} technicians, {} requirements", 
+                  task.getSpeciality(), technicianCount, requirements.size());
+        
+        for (EquipmentRequirement requirement : requirements) {
+            // Compute required quantity respecting usage type
+            int required = requirement.computeRequired(technicianCount);
+            
+            log.debug("Equipment {}: base quantity {}, usage type {}, computed required {}", 
+                      requirement.getName(), requirement.getQuantity(), requirement.getUsageType(), required);
+            
+            // Add to totals (merge/sum if already exists)
+            requiredTotals.merge(requirement.getName(), required, Integer::sum);
+        }
+    }
+    
+    if (requiredTotals.isEmpty()) {
+        log.debug("No equipment requirements for incident {}", incidentId);
+        return true;
+    }
+    
+    log.debug("Total required equipment for incident {}: {}", incidentId, requiredTotals);
+    
+    // Step 2: Check availability for each required equipment
+    for (Map.Entry<EquipmentName, Integer> entry : requiredTotals.entrySet()) {
+        EquipmentName equipmentName = entry.getKey();
+        int requiredQuantity = entry.getValue();
+        
+        // Query available equipment by zone and name, filtered by status
+        List<Equipment> availableEquipment = equipmentRepository
+                .findByEquipmentNameAndZone(equipmentName, zone);
+        
+        // Calculate total available quantity (only operational equipment)
+        int availableCount = availableEquipment.stream()
+                .filter(eq -> eq.getStatus() == EquipmentStatus.OPERATIONAL)
+                .mapToInt(eq -> eq.getQuantity() - eq.getInUse()) // Available = total - in use
+                .sum();
+        
+        log.debug("Equipment {} in zone {}: required {}, available {}", 
+                  equipmentName, zone, requiredQuantity, availableCount);
+        
+        // Check if we have enough
+        if (availableCount < requiredQuantity) {
+            log.warn("Insufficient equipment for incident {}: {} required {}, available {} in zone {}", 
+                     incidentId, equipmentName, requiredQuantity, availableCount, zone);
+            
+            // Log detailed breakdown for debugging
+            log.debug("Equipment check failed - Equipment: {}, Required: {}, Available: {}, Zone: {}", 
+                      equipmentName, requiredQuantity, availableCount, zone);
+            
+            return false;
+        }
+    }
+    
+    log.info("Equipment check passed for incident {} in zone {}: all {} equipment types satisfied", 
+             incidentId, zone, requiredTotals.size());
+    
+    return true;
+}
 
     // ===========================================================
     //                     BASIC CRUD
@@ -188,46 +276,6 @@ public class EquipmentService {
         return EquipmentMapper.toDTO(equipmentRepository.save(eq));
     }
 
-    public boolean hasEnoughEquipment(
-            List<ExpandedPlanningTask> tasks,
-            Zone zone
-    ) {
-
-        Map<EquipmentName, Integer> required = new HashMap<>();
-
-        // Aggregate once per incident (expanded tasks already share same equipment)
-        for (ExpandedPlanningTask task : tasks) {
-            if (task.getRequiredEquipment() == null) continue;
-
-            for (Map.Entry<EquipmentName, Integer> entry
-                    : task.getRequiredEquipment().entrySet()) {
-
-                required.merge(
-                        entry.getKey(),
-                        entry.getValue(),
-                        Integer::sum
-                );
-            }
-        }
-
-        // Check availability PER ZONE
-        for (Map.Entry<EquipmentName, Integer> entry : required.entrySet()) {
-
-            int available =
-                    equipmentRepository
-                            .findByEquipmentNameAndZone(entry.getKey(), zone)
-                            .stream()
-                            .filter(eq -> eq.getStatus() == EquipmentStatus.OPERATIONAL)
-                            .mapToInt(eq -> eq.getQuantity() - eq.getInUse())
-                            .sum();
-
-            if (available < entry.getValue()) {
-                return false;
-            }
-        }
-
-        return true;
-    }
 
 
     //Helper method for List conversion.
