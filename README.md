@@ -50,7 +50,7 @@ A short demonstration of the system in action:
 
 ## 👥 User Roles & Privileges
 
-![high_Level_Use_Case_Diagram.png](diagrams_photos/high_Level_Use_Case_Diagram.png)
+![high_Level_Use_Case_Diagram.png](docs/diagrams_photos/high_Level_Use_Case_Diagram.png)
 ### 🟢 Citizen
 
 * Submit incidents (description, images, location)
@@ -110,7 +110,7 @@ and exported version:
 ---
 Engineer level use case diagram:
 
-![engineer_level_usecases.png](diagrams_photos/engineer_level_usecases.png)
+![engineer_level_usecases.png](docs/diagrams_photos/engineer_level_usecases.png)
 
 The full diagram is available in:
 
@@ -150,7 +150,7 @@ Intervenia follows a **modular, domain-driven architecture**:
 ---
 
 ## 🔄 End-to-End Workflow
-![sequence_diagram.png](diagrams_photos/sequence_diagram.png)
+![sequence_diagram.png](docs/diagrams_photos/sequence_diagram.png)
 1. **Incident Submission**
 
     * Citizen submits description, images, location
@@ -202,7 +202,7 @@ and exported version:
 ---
 🧩 Class Diagram Overview
 
-![class_diagram_.png](diagrams_photos/class_diagram_.png)
+![class_diagram_.png](docs/diagrams_photos/class_diagram_.png)
 
 
 The Class Diagram represents the core domain model of IntervenIA and how entities interact within the system. It is designed using a hybrid DDD-inspired structure adapted to a MongoDB-based architecture.
@@ -251,7 +251,7 @@ and exported version:
 Minimize total intervention start time (respond as early as possible)
 
 ---
-![Solver_Architecture___Snake_Flow.png](diagrams_photos/Solver_Architecture___Snake_Flow.png)
+![Solver_Architecture___Snake_Flow.png](docs/diagrams_photos/Solver_Architecture___Snake_Flow.png)
 ### ✅ Constraints
 
 #### 1. Technician Assignment
@@ -391,7 +391,7 @@ and exported version:
 
 Intervenia uses a **hybrid NoSQL approach**:
 
-![Data model](diagrams_photos/data_model.png)
+![Data model](docs/diagrams_photos/data_model.png)
 
 ### ✅ Embedding (for performance)
 
